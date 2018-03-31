@@ -26,17 +26,22 @@
 
 using namespace cv;
 
-class ExerciseManager {
+class ImageManager {
 private:
 //    int dx[] = {1, -1, 0, 0, 1, -1, -1, 1};
 //    int dy[] = {0, 0, 1, -1, 1, -1, 1, -1};
     vector<int> dx = {1, -1, 0, 0};
     vector<int> dy = {0, 0, 1, -1};
-    char *_window_name;
+    string _window_name = "Image Manager";
+    Mat src;
 
 public:
-    ExerciseManager(char *window_name) {
-        _window_name = window_name;
+    ImageManager(const std::string image_name, int dis = 1) {
+		src = imread(image_name.c_str(), IMREAD_COLOR);
+		cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
+		if(dis==1){
+			DISPLAY_IMAGE(src);
+		}
     }
 
 
@@ -49,6 +54,10 @@ public:
 
     }
 
+    static bool compareX(Point lhs, Point rhs) { return lhs.x < rhs.x; };
+
+    static bool compareY(Point lhs, Point rhs) { return lhs.y < rhs.y; };
+
     bool IsInBounds(int r, int c, int rows, int columns) {
         if (r < 0)return false;
         if (c < 0)return false;
@@ -56,12 +65,26 @@ public:
         if (c >= columns)return false;
         return true;
     }
+	
+	
+	void onClick(int event, int x, int y, int flags, void* userdata)
+	{	
+		std::cout<<x<<" "<<y<<std::endl;
+		ImageManager *im_this = (ImageManager*) userdata;
+		 if  ( event == EVENT_LBUTTONDOWN )
+		 {
+			 Point event_source(x,y);
+			 im_this->FIND_REGION(im_this->src, event_source, 2, 2, 2);
+		 }
+		 
+	}
 
-    Mat
-    FIND_REGION(const Mat image, const Point &point, int b_threshold = 10, int r_threshold = 10, int g_threshold = 10) {
+    vector<Point>
+    FIND_REGION(const Mat image, const Point &point, int b_threshold = 2, int r_threshold = 2, int g_threshold = 2) {
         assert((b_threshold >= 0) && (b_threshold <= 255));
         assert((r_threshold >= 0) && (r_threshold <= 255));
         assert((g_threshold >= 0) && (g_threshold <= 255));
+        std::cout<<"Find Region "<<point.x<<" "<<point.y<<std::endl;
         Mat image_copy(image.size(), CV_8UC3, 0);
         //create point from initial given point
         Point target(point.x, point.y);
@@ -88,10 +111,32 @@ public:
             }
             stack.pop();
         }
+        std::pair <vector<Point>::iterator, vector<Point>::iterator> xExtremes, yExtremes;
+        xExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareX);
+        yExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareY);
+        Point upperLeft(xExtremes.first->x, yExtremes.first->y);
+        Point lowerRight(xExtremes.second->x, yExtremes.second->y);
+        vector<Point> bounding_box_edges;
+        bounding_box_edges.emplace_back(upperLeft);
+        bounding_box_edges.emplace_back(lowerRight);
+        return bounding_box_edges;
 
     }
 
     Mat FIND_PIXELS(const Mat) {}
+
+    vector<Point> FIND_PERIMNETER(vector<Point> region) {
+        vector<Point> perimeter;
+		Point upper_left(region[0]);
+		Point lower_right(region[1]);
+		Point upper_right(region[1].x, region[0].y);
+		Point lower_left(region[0].x, region[1].y);
+		perimeter.emplace_back(upper_left);
+		perimeter.emplace_back(lower_left);
+		perimeter.emplace_back(lower_right);
+		perimeter.emplace_back(upper_right);
+        return perimeter;
+    }
 
     void DISPLAY_IMAGE(const Mat image) {
         try {
