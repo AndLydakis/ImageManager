@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 2.8)
+project(ImageManager)
+set(SOURCE_FILES main.cpp ImageManager.h)
+set(CMAKE_CXX_STANDARD 17)
+set(OpenCV_DIR "/usr/share/OpenCV")
+find_package(OpenCV REQUIRED)
+add_executable(MAIN_TEST main.cpp)
+target_link_libraries(MAIN_TEST ${OpenCV_LIBS})
