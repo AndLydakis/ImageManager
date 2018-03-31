@@ -32,11 +32,24 @@ private:
 //    int dy[] = {0, 0, 1, -1, 1, -1, 1, -1};
     vector<int> dx = {1, -1, 0, 0};
     vector<int> dy = {0, 0, 1, -1};
-    string _window_name = "Image Manager";
+    const string _window_name = "Image Manager";
     Mat src;
-
+	
+	static void onClick(int event, int x, int y, int flags, void* param)
+	{	
+		std::cout<<x<<" "<<y<<std::endl;
+		ImageManager *im_this = static_cast<ImageManager*>( param);
+		 if  ( event == EVENT_LBUTTONDOWN )
+		 {
+			 Point event_source(x,y);
+			 im_this->FIND_REGION(im_this->src, event_source, 2, 2, 2);
+		 }
+		 
+	}
+	
 public:
     ImageManager(const std::string image_name, int dis = 1) {
+		namedWindow(_window_name, WINDOW_AUTOSIZE);
 		src = imread(image_name.c_str(), IMREAD_COLOR);
 		cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
 		if(dis==1){
@@ -65,19 +78,6 @@ public:
         if (c >= columns)return false;
         return true;
     }
-	
-	
-	void onClick(int event, int x, int y, int flags, void* userdata)
-	{	
-		std::cout<<x<<" "<<y<<std::endl;
-		ImageManager *im_this = (ImageManager*) userdata;
-		 if  ( event == EVENT_LBUTTONDOWN )
-		 {
-			 Point event_source(x,y);
-			 im_this->FIND_REGION(im_this->src, event_source, 2, 2, 2);
-		 }
-		 
-	}
 
     vector<Point>
     FIND_REGION(const Mat image, const Point &point, int b_threshold = 2, int r_threshold = 2, int g_threshold = 2) {
@@ -140,10 +140,13 @@ public:
 
     void DISPLAY_IMAGE(const Mat image) {
         try {
-            namedWindow(_window_name, WINDOW_AUTOSIZE);
-            imshow(_window_name, image);
-            std::cout << "Press any key to continue\n";
-            waitKey(0);
+            
+            std::cout << "Press 'c' to continue\n";
+            while(true){
+				imshow(_window_name, image);
+				int k = waitKey(0);
+				if ( k==27 ) break;
+			}
         } catch (int e) {
             std::cout << "Could not display Image\n";
             return;
