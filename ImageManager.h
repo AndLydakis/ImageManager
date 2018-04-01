@@ -190,6 +190,13 @@ public:
         return perimeter;
     }
 	
+	void FIND_PERIMETER(){
+		if(region_of_interest.size()==0){
+			std::cout<<"No data available\n";
+		}else{
+			FIND_PERIMETER(region_of_interest);
+		}
+	}
 	void FIND_REGION(){
 		DISPLAY_IMAGE();
 	}
@@ -263,7 +270,7 @@ public:
         }
         DISPLAY_PIXELS(region_of_interest);
     }
-
+	
 	//Save the cropped pixels
     void SAVE_PIXELS(vector<Point> region) {
 		if(region_of_interest.size() == 0){
@@ -274,6 +281,14 @@ public:
 		Mat cropped = src(roi).clone();
 		imwrite( "region.jpg", cropped);
     }
+    
+    void SAVE_PIXELS(){
+		if(region_of_interest.size()==0){
+			std::cout<<"No data available to save\n";
+		}else{
+			SAVE_PIXELS(region_of_interest);
+		}
+	}
 };
 
 #endif //EXERCISE_AEO2881_IMAGEMANAGER_H

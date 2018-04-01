@@ -14,7 +14,7 @@ void command_loop(ImageManager& IM){
 			if(command=="DISPLAY IMAGE"){
 				IM.DISPLAY_IMAGE();
 			}else if(command == "DISPLAY PIXELS"){
-				IM.DISPLAY_PIXELS()
+				IM.DISPLAY_PIXELS();
 			}else if(command == "FIND REGION"){
 				IM.FIND_REGION();
 			}else if(command == "FIND PERIMETER"){
