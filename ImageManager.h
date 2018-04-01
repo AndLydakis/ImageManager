@@ -183,7 +183,7 @@ public:
         return bounding_box_edges;
 
     }
-
+ 
     /**
      *
      * @param region a vector of points containing the upper left and lowe right

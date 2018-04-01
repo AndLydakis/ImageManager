@@ -11,8 +11,12 @@ void command_loop(ImageManager& IM){
 		cout<<"Avaible Commands\nDISPLAY IMAGE\nDISPLAY PIXELS\nFIND REGION\nFIND PERIMETER\nSAVE PIXELS\nQUIT\n";
 		while(true){
 			getline(cin, command);
-			if(command=="DISPLAY IMAGE"){
+			if(command=="DISPLAY"){
 				IM.DISPLAY_IMAGE();
+			}else if(command.find(" ") != std::string::npos){
+				if(command.substr(0, command.find(" "))=="DISPLAY"){
+						IM.DISPLAY_IMAGE(command.substr(command.find(" ")+1));
+				}
 			}else if(command == "DISPLAY PIXELS"){
 				IM.DISPLAY_PIXELS();
 			}else if(command == "FIND REGION"){

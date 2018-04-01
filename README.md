@@ -2,7 +2,9 @@
 
 ## Main Executable: ./MAIN_TEST -i < path to image >
 ### Available commands:
-	DISPLAY IMAGE: Displays the selected image, clickin on a point will trigger the FIND REGION FUNCTION
+    DISPLAY :Display an already loaded image, clicking on a point will trigger the FIND REGION FUNCTION
+
+	DISPLAY <IMAGE>: Displays the selected image, clicking on a point will trigger the FIND REGION FUNCTION
     
     FIND REGION: Same functionality as DISPLAY IMAGE
     
