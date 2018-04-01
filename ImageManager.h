@@ -55,27 +55,34 @@ private:
 public:
     //Initialize with an image
     ImageManager(const std::string image_name, int dis = 1) {
-		namedWindow(_window_name, WINDOW_AUTOSIZE);
 		src = imread(image_name.c_str(), CV_LOAD_IMAGE_COLOR);
 		if(!src.data){
-			std::cout<<"No image read/n";
+			std::cout<<"No image read\n";
 			return;
 		}
-		cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
 		if(dis==1){
 			DISPLAY_IMAGE(src);
 		}
     }
 
+	ImageManager() {
+		
+    }
+    
     //Change the image used
 	void changeSrc(const std::string image_name){
 		src = imread(image_name.c_str());
 		if(!src.data){
-			std::cout<<"No image read/n";
+			std::cout<<"No image read\n";
 			return;
 		}
 	}
-
+	
+	//Close the plot window
+	void closeWindow(){
+		destroyWindow(_window_name);
+	}
+	
     //BASIC SIMILARITY FUNCTION
     //TODO probably replace it with a HSV comparison
     bool is_similar(cv::Vec3b p1, cv::Vec3b p2, int b_threshold, int r_threshold, int g_threshold) {
@@ -112,6 +119,19 @@ public:
      * @param g_threshold similarity threshold for green color
      * @return a vector of points similar in color to the source point
      */
+     
+    vector<Point>
+    FIND_REGION(int x, int y){
+		if(!src.data){
+			std::cout<<"No image provided\n";
+			return {};
+		}
+		assert(x>=0);
+		assert(y>=0);
+		assert(x<src.cols);
+		assert(y<src.rows);
+		FIND_REGION(src, Point(x, y), 2, 2, 2);
+	}
     vector<Point>
     FIND_REGION(const Mat image, const Point &point, int b_threshold = 2, int r_threshold = 2, int g_threshold = 2) {
         assert((b_threshold >= 0) && (b_threshold <= 255));
@@ -179,6 +199,7 @@ public:
         for(auto p: bounding_box_edges){
 			std::cout<<p.x<<" "<<p.y<<std::endl;
 		}
+		similar_points.clear();
 		FIND_PERIMETER(bounding_box_edges);
         return bounding_box_edges;
 
@@ -218,9 +239,11 @@ public:
 			FIND_PERIMETER(region_of_interest);
 		}
 	}
+	
 	void FIND_REGION(){
 		DISPLAY_IMAGE();
 	}
+	
 	//Display an alread loaded image
 	void DISPLAY_IMAGE(){
 		if(!src.data){
@@ -228,24 +251,33 @@ public:
 		}
 		DISPLAY_IMAGE(src);
 	}
+	
     /**
      * Displays an Image
      * @param image Image to display
      */
     void DISPLAY_IMAGE(const Mat image) {
-		//destroyWindow(_window_name);
+		namedWindow(_window_name, WINDOW_AUTOSIZE);
+		cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
+		if(!image.data){
+            std::cout<<"DISP IMG (Mat)  No image read\n";
+            destroyWindow(_window_name);
+            return;
+        }
         try {
-            std::cout << "Press 'c' to continue\n";
+            std::cout << "Press 'q' to continue\n";
             while(true){
 				imshow(_window_name, image);
-				int k = waitKey(1);
-				if (k==27) break;
+				int key = (waitKey(1) & 0xFF);
+				if (key == 'q') break;
 			}
 		
         } catch (int e) {
             std::cout << "Could not display Image\n";
+            destroyWindow(_window_name);
             return;
         }
+        destroyWindow(_window_name);
     }
 
     /**
@@ -253,30 +285,42 @@ public:
      * @param image_name the path of the image to display
      */
     void DISPLAY_IMAGE(const string image_name) {
-		//destroyWindow(_window_name);
+		namedWindow(_window_name, WINDOW_AUTOSIZE);
+		cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
         src = imread(image_name.c_str());
         region_of_interest.clear();
         bounding_box.clear();
         if(!src.data){
-            std::cout<<"No image read/n";
+            std::cout<<"DISP IMG (str) No image read/n";
+            destroyWindow(_window_name);
             return;
         }
         try {
-            std::cout << "Press 'c' to continue\n";
+            std::cout << "Press 'q' to continue\n";
             while(true){
 				imshow(_window_name, src);
-				int k = waitKey(1);
-				if (k==27) break;
-			};
+				int key = (waitKey(1) & 0xFF);
+				if (key == 'q') break;
+			}
             
         } catch (int e) {
             std::cout << "Could not display Image\n";
+            destroyWindow(_window_name);
             return;
         }
+		destroyWindow(_window_name);
     }
 
     void DISPLAY_PIXELS(vector<Point> perimeter) {
 		Rect roi(perimeter[0], perimeter[1]);
+		if(perimeter[0].y==perimeter[1].y){
+			std::cout<<"Invalid Area same X for both endpoints\n";
+			return;
+		}
+		if(perimeter[0].y==perimeter[1].y){
+			std::cout<<"Invalid Area same X for both endpoints\n";
+			return;
+		}
 		Mat cropped = src(roi);
 		for(auto p: perimeter){
 			std::cout<<p.x<<" "<<p.y<<std::endl;

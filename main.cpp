@@ -2,33 +2,37 @@
 // Created by lydakis on 3/31/18.
 //
 #include <cstdlib>
+#include <unistd.h>
 #include "ImageManager.h"
 
 using namespace std;
 
+string available_commands = "Avaible Commands\nDISPLAY\nDISPLAY <image>\nDISPLAY PIXELS\nFIND REGION\nFIND PERIMETER\nSAVE PIXELS\nQUIT\n";
 void command_loop(ImageManager& IM){
 	string command;
-		cout<<"Avaible Commands\nDISPLAY IMAGE\nDISPLAY PIXELS\nFIND REGION\nFIND PERIMETER\nSAVE PIXELS\nQUIT\n";
+		cout<< available_commands;
 		while(true){
 			getline(cin, command);
 			if(command=="DISPLAY"){
 				IM.DISPLAY_IMAGE();
 			}else if(command.find(" ") != std::string::npos){
 				if(command.substr(0, command.find(" "))=="DISPLAY"){
+					if(command.substr(command.find(" ")+1) == "IMAGE"){
 						IM.DISPLAY_IMAGE(command.substr(command.find(" ")+1));
+					}else if(command == "DISPLAY PIXELS"){
+						IM.DISPLAY_PIXELS();
+					}
+				}else if(command == "FIND REGION"){
+					IM.FIND_REGION();
+				}else if(command == "FIND PERIMETER"){
+					IM.FIND_PERIMETER();
+				}else if(command == "SAVE PIXELS"){
+					IM.SAVE_PIXELS();
 				}
-			}else if(command == "DISPLAY PIXELS"){
-				IM.DISPLAY_PIXELS();
-			}else if(command == "FIND REGION"){
-				IM.FIND_REGION();
-			}else if(command == "FIND PERIMETER"){
-				IM.FIND_PERIMETER();
-			}else if(command == "SAVE PIXELS"){
-				IM.SAVE_PIXELS();
 			}else if(command == "QUIT"){
 				return;
 			}else{
-				cout<<"Avaible Commands\nDISPLAY IMAGE\nDISPLAY PIXELS\nFIND REGION\nFIND PERIMETER\nSAVE PIXELS\nQUIT\n";
+				cout<< available_commands;
 			}
 		}
 }
@@ -47,6 +51,22 @@ int main(int argc, char **argv) {
         if(function=="DISPLAY"){
 			ImageManager IM(name, 1);
 			command_loop(IM);
+		}else if(function== "TEST"){
+			ImageManager IM;
+			IM.DISPLAY_IMAGE("test1.png");
+			IM.FIND_REGION(123, 123);
+			usleep(3000);
+			IM.DISPLAY_IMAGE("test2.png");
+			IM.FIND_REGION(123, -3);
+			usleep(3000);
+			IM.DISPLAY_IMAGE("test3.png");
+			IM.FIND_REGION(123, 123);
+			usleep(3000);
+			IM.DISPLAY_IMAGE("test4.png");
+			IM.FIND_REGION(123, 123);
+			IM.DISPLAY_IMAGE("yesthisfileiscorrupt.png");
+			IM.FIND_REGION(123, 123);
+			return 0;
 		}else{
 			ImageManager IM(name);
 			command_loop(IM);
