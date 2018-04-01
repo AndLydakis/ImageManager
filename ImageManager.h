@@ -24,9 +24,38 @@
 #include <valarray>
 #include "cxxopts.hpp"
 
-#define MAX_SIZE_TO_COMPUTE_CONVEX_HULL 4000
+#define MAX_SIZE_TO_COMPUTE_CONVEX_HULL 10000
 
 using namespace cv;
+
+/**
+ * @brief Generates linearly spaced points
+ *
+ * @param a Start value
+ * @param b End value
+ * @param N Number of points
+ */
+template<typename T = double>
+vector<T> linspace(T a, T b, size_t N) {
+    T h = (b - a) / static_cast<T>(N - 1);
+    vector<T> xs(N);
+    typename vector<T>::iterator x;
+    T val;
+    for (x = xs.begin(), val = a; x != xs.end(); ++x, val += h)
+        *x = val;
+    return xs;
+}
+
+//Boundary Check x coordinates
+static bool compareX(Point lhs, Point rhs) { return lhs.x < rhs.x; };
+
+//Boundary Check y coordinates
+static bool compareY(Point lhs, Point rhs) { return lhs.y < rhs.y; };
+
+//Distance function for 2 points
+float dist(Point p1, Point p2) {
+    return sqrt((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y));
+}
 
 class ImageManager {
 private:
@@ -40,14 +69,11 @@ private:
     vector<Point> region_of_interest;
     //Stores all the points in the bounding box of the roi
     vector<Point> bounding_box;
-    //Stores the convec hull of the region of interest
+    //Stores the convex hull of the region of interest
     vector<Point> convex_hull_;
 
-    //Boundary Check x coordinates
-    static bool compareX(Point lhs, Point rhs) { return lhs.x < rhs.x; };
-
-    //Boundary Check y coordinates
-    static bool compareY(Point lhs, Point rhs) { return lhs.y < rhs.y; };
+    //Stores the smoothed convex hull of the region of interest
+    vector<Point> smoothed_convex_hull_;
 
     //Callback to get click coordinates and call FIND_REGION on theses coordinates
     static void onClick(int event, int x, int y, int flags, void *param) {
@@ -279,6 +305,8 @@ public:
             convex_hull_.clear();
         }
 
+        FIND_SMOOTH_PERIMETER();
+
         if (bounding_box_edges.size() != 2) {
             std::cout << "Could not find region\n";
             return;
@@ -486,8 +514,78 @@ public:
         }
     }
 
-    void FIND_SMOOTH_PERIMETER() {
+    float tj(float t, Point p0, Point p1) {
+        float alpha = 0.5;
+        float a = pow((p1.x - p0.x), 2.0f) + pow((p1.y - p0.y), 2.0f);
+        float b = pow(a, 0.5f);
+        float c = pow(b, alpha);
 
+        return (c + t);
+    }
+
+    vector<Point> CatMulSplineInterval(Point p0, Point p1, Point p2, Point p3, int num_points = 20) {
+        float t0 = 0;
+        float t1 = tj(t0, p0, p1);
+        float t2 = tj(t1, p1, p2);
+        float t3 = tj(t2, p2, p3);
+
+        vector<Point> C;
+
+        for (float t = t1; t < t2; t += ((t2 - t1) / num_points)) {
+            Point A1;
+            A1.x = (t1 - t) / (t1 - t0) * p0.x + (t1 - t) / (t1 - t0) * p1.x;
+            A1.y = (t1 - t) / (t1 - t0) * p0.y + (t1 - t) / (t1 - t0) * p1.y;
+
+
+            Point A2;
+            A2.x = (t2 - t) / (t2 - t1) * p1.x + (t2 - t1) / (t2 - t1) * p2.x;
+            A2.y = (t2 - t) / (t2 - t1) * p1.y + (t2 - t1) / (t2 - t1) * p2.y;
+
+
+            Point A3;
+            A3.x = (t3 - t) / (t3 - t2) * p2.x + (t3 - t) / (t3 - t2) * p3.x;
+            A3.y = (t3 - t) / (t3 - t2) * p2.y + (t3 - t) / (t3 - t2) * p3.y;
+
+            Point B1;
+            B1.x = (t2 - t) / (t2 - t0) * A1.x + (t - t0) / (t2 - t0) * A2.x;
+            B1.y = (t2 - t) / (t2 - t0) * A1.y + (t - t0) / (t2 - t0) * A2.y;
+
+
+            Point B2;
+            B2.x = (t3 - t) / (t3 - t1) * A2.x + (t - t1) / (t3 - t1) * A3.x;
+            B2.y = (t3 - t) / (t3 - t1) * A2.y + (t - t1) / (t3 - t1) * A3.y;
+
+            Point C_;
+            C_.x = (t2 - t) / (t2 - t1) * B1.x + (t - t1) / (t2 - t1) * B2.x;
+            C_.y = (t2 - t) / (t2 - t1) * B1.y + (t - t1) / (t2 - t1) * B2.y;
+
+            C.emplace_back(C_);
+
+        }
+
+        return C;
+    }
+
+    void CatMulSpline() {
+        size_t size = convex_hull_.size();
+        if (size <= 4) {
+            smoothed_convex_hull_ = convex_hull_;
+        }
+        vector<Point> c;
+        for (int i = 0; i < size - 3; ++i) {
+            c = CatMulSplineInterval(convex_hull_[i], convex_hull_[i + 1], convex_hull_[i + 2], convex_hull_[i + 3]);
+            copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
+        }
+        std::cout << "Smoothed_convec_hull size: " << smoothed_convex_hull_.size() << std::endl;
+    }
+
+    void FIND_SMOOTH_PERIMETER() {
+        std::cout << "Find Smooth Perimeter" << std::endl;
+        if (convex_hull_.size() <= 4) {
+            std::cout << "Cannot smooth detected region\n";
+            return;
+        }
+        CatMulSpline();
     }
 };
 
