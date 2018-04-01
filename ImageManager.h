@@ -9,7 +9,6 @@
 # include "opencv2/core/core.hpp"
 # include "opencv2/features2d/features2d.hpp"
 # include "opencv2/highgui/highgui.hpp"
-# include "opencv2/nonfree/features2d.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -38,20 +37,18 @@ private:
     vector<Point> bounding_box;
 
     //Callback to get click coordinates and call FIND_REGION on theses coordinates
-	static void onClick(int event, int x, int y, int flags, void* param)
-	{	
-		//std::cout<<x<<" "<<y<<std::endl;
-		ImageManager *im_this = static_cast<ImageManager*>( param);
-		//std::cout<<im_this->src.rows<<std::endl;
-		//std::cout<<im_this->src.cols<<std::endl;
-		 if  ( event == EVENT_LBUTTONDOWN )
-		 {
-			 Point event_source(x,y);
-			 im_this->FIND_REGION(im_this->src, event_source, 2, 2, 2);
-		 }
-		 
-	}
-	
+    static void onClick(int event, int x, int y, int flags, void *param) {
+        //std::cout<<x<<" "<<y<<std::endl;
+        ImageManager *im_this = static_cast<ImageManager *>( param);
+        //std::cout<<im_this->src.rows<<std::endl;
+        //std::cout<<im_this->src.cols<<std::endl;
+        if (event == EVENT_LBUTTONDOWN) {
+            Point event_source(x, y);
+            im_this->FIND_REGION(im_this->src, event_source, 2, 2, 2);
+        }
+
+    }
+
 public:
 
     ImageManager() {
@@ -63,44 +60,42 @@ public:
      * @param image_name the path of the image to load as a string
      * @param dis 1 if you want to display the image immediately, 0 otherwise
      */
-    ImageManager(const std::string image_name, int dis = 1) {
-		src = imread(image_name.c_str(), CV_LOAD_IMAGE_COLOR);
-		if(!src.data){
-			std::cout<<"No image read in constructor\n";
-			return;
-		}
-		if(dis==1){
-			DISPLAY_IMAGE(src);
-		}
+    ImageManager(const std::string image_name) {
+//        namedWindow(_window_name, WINDOW_AUTOSIZE);
+        src = imread(image_name.c_str(), CV_LOAD_IMAGE_COLOR);
+        if (!src.data) {
+            std::cout << "No image read in constructor\n";
+            return;
+        }
     }
 
 
-    
     /**
      * Changes the image that is being used
      * @param image_name the image name to use as a source from now on
      */
-	void changeSrc(const std::string image_name){
-		src = imread(image_name.c_str());
-		if(!src.data){
-			std::cout<<"No image read\n";
-			return;
-		}
-	}
-	
-	//Close the plot window
-	void closeWindow(){
-		destroyWindow(_window_name);
-	}
-	
+    void changeSrc(const std::string image_name) {
+        src = imread(image_name.c_str());
+        if (!src.data) {
+            std::cout << "No image read\n";
+            return;
+        }
+    }
+
+    //Close the plot window
+    void closeWindow() {
+        destroyWindow(_window_name);
+    }
+
     //BASIC SIMILARITY FUNCTION
+    //Checks if two point rgb values are with in allowed thresholds
     //TODO probably replace it with a HSV comparison
     bool is_similar(cv::Vec3b p1, cv::Vec3b p2, int b_threshold, int r_threshold, int g_threshold) {
-		//std::cout<<(int)p1.val[0]<<" "<<(int)p1.val[1]<<" "<<(int)p1.val[2]<<std::endl;
-		//std::cout<<(int)p2.val[0]<<" "<<(int)p2.val[1]<<" "<<(int)p2.val[2]<<std::endl;
-        return ((abs((int)p1[0] - (int)p2[0]) <= b_threshold) &&
-                (abs((int)p1[1] - (int)p2[1]) <= g_threshold) &&
-                (abs((int)p1[2] - (int)p2[2]) <= r_threshold));
+        //std::cout<<(int)p1.val[0]<<" "<<(int)p1.val[1]<<" "<<(int)p1.val[2]<<std::endl;
+        //std::cout<<(int)p2.val[0]<<" "<<(int)p2.val[1]<<" "<<(int)p2.val[2]<<std::endl;
+        return ((abs((int) p1[0] - (int) p2[0]) <= b_threshold) &&
+                (abs((int) p1[1] - (int) p2[1]) <= g_threshold) &&
+                (abs((int) p1[2] - (int) p2[2]) <= r_threshold));
 
     }
 
@@ -119,7 +114,6 @@ public:
         return true;
     }
 
-	
 
     /**
      * Call FIND_REGION on given coordinates
@@ -127,18 +121,17 @@ public:
      * @param y y coordinate
      * @return the vector containing all the similar points
      */
-    vector<Point>
-    FIND_REGION(int x, int y){
-		if(!src.data){
-			std::cout<<"No image provided\n";
-			return {};
-		}
-		assert(x>=0);
-		assert(y>=0);
-		assert(x<src.cols);
-		assert(y<src.rows);
-		FIND_REGION(src, Point(x, y), 2, 2, 2);
-	}
+    void
+    FIND_REGION(int x, int y) {
+        if (!src.data) {
+            std::cout << "No image provided\n";
+        }
+        assert(x >= 0);
+        assert(y >= 0);
+        assert(x < src.cols);
+        assert(y < src.rows);
+        FIND_REGION(src, Point(x, y), 2, 2, 2);
+    }
 
     /**
      *
@@ -149,7 +142,7 @@ public:
      * @param g_threshold similarity threshold for green color
      * @return a vector of points similar in color to the source point
      */
-    vector<Point>
+    void
     FIND_REGION(const Mat image, const Point &point, int b_threshold = 2, int r_threshold = 2, int g_threshold = 2) {
         assert((b_threshold >= 0) && (b_threshold <= 255));
         assert((r_threshold >= 0) && (r_threshold <= 255));
@@ -161,15 +154,15 @@ public:
         //create a stack for floodfill
         std::stack<Point> stack_;
         stack_.push(target);
-        
-		vector< vector< bool > > visited_ ( image.cols, vector<bool>( image.rows, false ) );
-		visited_[point.x][point.y] = true;
-        
+
+        vector<vector<bool> > visited_(image.cols, vector<bool>(image.rows, false));
+        visited_[point.x][point.y] = true;
+
         //vector that will hold the similar points
         vector<Point> similar_points;
         //flood fill and get similar points
-        std::cout<<"Target Point: "<<point.x<<" "<<point.y<<std::endl;
-        std::cout<< image.cols<<"x"<<image.rows<<"\n";
+        std::cout << "Target Point: " << point.x << " " << point.y << std::endl;
+        std::cout << image.cols << "x" << image.rows << "\n";
         while (!stack_.empty()) {
             Point cur = stack_.top();
             //std::cout<<"Current Point: "<<cur.x<<" "<<cur.y<<std::endl;
@@ -180,17 +173,17 @@ public:
             int col = cur.x;
             if (is_similar(color1, color2, b_threshold,
                            r_threshold, g_threshold)) {
-				similar_points.emplace_back(cur);
+                similar_points.emplace_back(cur);
                 for (int dx_: dx) {
                     for (auto dy_ :dy) {
-						int new_col = col + dx_;
-						int new_row = row + dy_;
+                        int new_col = col + dx_;
+                        int new_row = row + dy_;
                         if (IsInBounds(new_row, new_col, image.rows, image.cols)) {
-							//std::cout<<"Adding "<<new_col<<" "<<new_row<<std::endl;
-							if(visited_[new_col][new_row]==false){
-								stack_.push(Point(new_col, new_row));
-								visited_[new_col][new_row] = true;
-							}
+                            //std::cout<<"Adding "<<new_col<<" "<<new_row<<std::endl;
+                            if (visited_[new_col][new_row] == false) {
+                                stack_.push(Point(new_col, new_row));
+                                visited_[new_col][new_row] = true;
+                            }
                         }
                     }
                 }
@@ -203,7 +196,7 @@ public:
         region_of_interest = similar_points;
 
         //get the upper left and lower right corners of the bounding box
-        std::pair <vector<Point>::iterator, vector<Point>::iterator> xExtremes, yExtremes;
+        std::pair<vector<Point>::iterator, vector<Point>::iterator> xExtremes, yExtremes;
         xExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareX);
         yExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareY);
         Point upperLeft(xExtremes.first->x, yExtremes.first->y);
@@ -211,21 +204,18 @@ public:
         vector<Point> bounding_box_edges;
         bounding_box_edges.emplace_back(upperLeft);
         bounding_box_edges.emplace_back(lowerRight);
-        
-        assert(bounding_box_edges.size()==2);
+
+        assert(bounding_box_edges.size() == 2);
 //        std::cout<<"Similar "<<similar_points.size()<<"\n";
 //        for(auto p: bounding_box_edges){
 //			std::cout<<p.x<<" "<<p.y<<std::endl;
 //		}
 //		similar_points.clear();
-
-
         //find the perimeter
-		FIND_PERIMETER(bounding_box_edges);
-        return bounding_box_edges;
-
+        FIND_PERIMETER(bounding_box_edges);
+//        return bounding_box_edges;
     }
- 
+
     /**
      * Get the bounding box of the points from FIND_REGION
      * Ideally we could use opencv's convex hull to be more precise
@@ -234,77 +224,79 @@ public:
      * of a region of interest
      * @return the four corners of the bounding box
      */
-    vector<Point> FIND_PERIMETER(vector<Point> region) {
-		std::cout<<"Find Perimeter\n";
+    void FIND_PERIMETER(vector<Point> region) {
+        std::cout << "Find Perimeter\n";
         vector<Point> perimeter;
-		Point upper_left(region[0]);
-		Point lower_right(region[1]);
-		Point upper_right(region[1].x, region[0].y);
-		Point lower_left(region[0].x, region[1].y);
-		perimeter.emplace_back(upper_left);
-		perimeter.emplace_back(lower_left);
-		perimeter.emplace_back(lower_right);
-		perimeter.emplace_back(upper_right);
-//		for(auto p: perimeter){
-//			std::cout<<p.x<<" "<<p.y<<std::endl;
-//		}
-//		std::cout<<"\n";
-		//bounding_box = perimeter;
-		bounding_box = region;
+        Point upper_left(region[0]);
+        Point lower_right(region[1]);
+        Point upper_right(region[1].x, region[0].y);
+        Point lower_left(region[0].x, region[1].y);
+        perimeter.emplace_back(upper_left);
+        perimeter.emplace_back(lower_left);
+        perimeter.emplace_back(lower_right);
+        perimeter.emplace_back(upper_right);
 
-		//Display the area of interest
-		DISPLAY_PIXELS();
-        return perimeter;
+        //bounding_box = perimeter;
+        bounding_box = region;
+
+        //Display the area of interest
+//        DISPLAY_PIXELS();
+//        for(auto p: perimeter){
+//            std::cout<<p.x<<" "<<p.y<<std::endl;
+//        }
+//        std::cout<<"\n";
+//        return perimeter;
     }
 
     //Call FIND_PERIMETER with the alread stored region of interest
-	void FIND_PERIMETER(){
-		if(region_of_interest.size()==0){
-			std::cout<<"No data available\n";
-		}else{
-			FIND_PERIMETER(region_of_interest);
-		}
-	}
+    void FIND_PERIMETER() {
+        if (region_of_interest.size() == 0) {
+            std::cout << "No data available\n";
+        } else {
+            FIND_PERIMETER(region_of_interest);
+        }
+    }
 
-	//Start up the window to get the point of interest by clicking
-	void FIND_REGION(){
-		DISPLAY_IMAGE();
-	}
-	
-	//Display an alread loaded image
-	void DISPLAY_IMAGE(){
-		if(!src.data){
-			std::cout<<"NO image loaded\n";
-		}
-		DISPLAY_IMAGE(src);
-	}
-	
+    //Start up the window to get the point of interest by clicking
+    void FIND_REGION() {
+//        DISPLAY_IMAGE();
+    }
+
+    //Display an alread loaded image
+    void DISPLAY_IMAGE() {
+        if (!src.data) {
+            std::cout << "No image loaded\n";
+            return;
+        }
+        DISPLAY_IMAGE(src);
+    }
+
     /**
      * Displays an Image
      * @param image Image to display
      */
     void DISPLAY_IMAGE(const Mat image) {
-		namedWindow(_window_name, WINDOW_AUTOSIZE);
-		cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
-		if(!image.data){
-            std::cout<<"DISP IMG (Mat)  No image read\n";
-            destroyWindow(_window_name);
+        destroyAllWindows();
+        namedWindow(_window_name, WINDOW_AUTOSIZE);
+//        cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
+        if (!image.data) {
+            std::cout << "DISP IMG (Mat)  No image read\n";
+//            destroyWindow(_window_name);
             return;
         }
         try {
-            std::cout << "Press 'q' to continue\n";
-            while(true){
-				imshow(_window_name, image);
-				int key = (waitKey(1) & 0xFF);
-				if (key == 'q') break;
-			}
-		
+            std::cout << "Press any key to continue\n";
+            imshow(_window_name, image);
+            waitKey(0);
+            std::cout << "Done\n";
+//            destroyAllWindows();
+//            waitKey(25);
+
+
         } catch (int e) {
             std::cout << "Could not display Image\n";
-            destroyWindow(_window_name);
             return;
         }
-        destroyWindow(_window_name);
     }
 
     /**
@@ -312,30 +304,14 @@ public:
      * @param image_name the path of the image to display
      */
     void DISPLAY_IMAGE(const string image_name) {
-		namedWindow(_window_name, WINDOW_AUTOSIZE);
-		cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
+        std::cout<<image_name<<std::endl;
         src = imread(image_name.c_str());
+        if(!src.data){
+            std::cout<<"DIPLAY (string) could not load image\n";
+        }
+        DISPLAY_IMAGE(src);
         region_of_interest.clear();
         bounding_box.clear();
-        if(!src.data){
-            std::cout<<"DISP IMG (str) No image read/n";
-            destroyWindow(_window_name);
-            return;
-        }
-        try {
-            std::cout << "Press 'q' to continue\n";
-            while(true){
-				imshow(_window_name, src);
-				int key = (waitKey(1) & 0xFF);
-				if (key == 'q') break;
-			}
-            
-        } catch (int e) {
-            std::cout << "Could not display Image\n";
-            destroyWindow(_window_name);
-            return;
-        }
-		destroyWindow(_window_name);
     }
 
     /**
@@ -344,62 +320,62 @@ public:
      * of the area of interest
      */
     void DISPLAY_PIXELS(vector<Point> perimeter) {
-		Rect roi(perimeter[0], perimeter[1]);
-		if(perimeter[0].y==perimeter[1].y){
-			std::cout<<"Invalid Area same X for both endpoints\n";
-			return;
-		}
-		if(perimeter[0].y==perimeter[1].y){
-			std::cout<<"Invalid Area same X for both endpoints\n";
-			return;
-		}
-		Mat cropped = src(roi);
-		for(auto p: perimeter){
-			std::cout<<p.x<<" "<<p.y<<std::endl;
-		}
-		std::cout<<"\n";
-		namedWindow("Cropped Image", WINDOW_AUTOSIZE);
-		imshow("Cropped Image", cropped);
-		waitKey(0);
-		//destroyWindow("Cropped Image");
+        Rect roi(perimeter[0], perimeter[1]);
+        if (perimeter[0].y == perimeter[1].y) {
+            std::cout << "Invalid Area same X for both endpoints\n";
+            return;
+        }
+        if (perimeter[0].y == perimeter[1].y) {
+            std::cout << "Invalid Area same X for both endpoints\n";
+            return;
+        }
+        Mat cropped = src(roi);
+        for (auto p: perimeter) {
+            std::cout << p.x << " " << p.y << std::endl;
+        }
+        std::cout << "\n";
+        namedWindow("Cropped Image", WINDOW_AUTOSIZE);
+        imshow("Cropped Image", cropped);
+        waitKey(0);
+        //destroyWindow("Cropped Image");
     }
 
     /**
      * Display the already calcuated area of interest, if it exists
      */
     void DISPLAY_PIXELS() {
-        if(bounding_box.size() == 0){
-            std::cout<<"No region selected\n";
+        if (bounding_box.size() == 0) {
+            std::cout << "No region selected\n";
             return;
         }
-        if(!src.data){
-            std::cout<<"No image selected\n";
+        if (!src.data) {
+            std::cout << "No image selected\n";
             return;
         }
         DISPLAY_PIXELS(bounding_box);
     }
-	
-	//Save the cropped pixels
+
+    //Save the cropped pixels
     /**
      * Save the already calcuated area of interest, if it exists
      */
     void SAVE_PIXELS(vector<Point> region, string filename = "region.jpg") {
-		if(region_of_interest.size() == 0){
-			std::cout<<"No region selected\n";
-			return;
-		}
-		Rect roi(region[0], region[1]);
-		Mat cropped = src(roi).clone();
-		imwrite(filename, cropped);
+        if (region_of_interest.size() == 0) {
+            std::cout << "No region selected\n";
+            return;
+        }
+        Rect roi(region[0], region[1]);
+        Mat cropped = src(roi).clone();
+        imwrite(filename, cropped);
     }
-    
-    void SAVE_PIXELS(string filename = "region.jpg"){
-		if(region_of_interest.size()==0){
-			std::cout<<"No data available to save\n";
-		}else{
-			SAVE_PIXELS(region_of_interest, filename);
-		}
-	}
+
+    void SAVE_PIXELS(string filename = "region.jpg") {
+        if (region_of_interest.size() == 0) {
+            std::cout << "No data available to save\n";
+        } else {
+            SAVE_PIXELS(region_of_interest, filename);
+        }
+    }
 };
 
 #endif //EXERCISE_AEO2881_IMAGEMANAGER_H
