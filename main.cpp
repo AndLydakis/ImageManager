@@ -20,7 +20,7 @@ void command_loop(ImageManager& IM){
 			}else if(command == "FIND PERIMETER"){
 				IM.FIND_PERIMETER();
 			}else if(command == "SAVE PIXELS"){
-				IM.SAVE_PIXELS()
+				IM.SAVE_PIXELS();
 			}else if(command == "QUIT"){
 				return;
 			}else{
