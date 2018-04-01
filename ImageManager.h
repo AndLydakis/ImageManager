@@ -9,6 +9,7 @@
 # include "opencv2/core/core.hpp"
 # include "opencv2/features2d/features2d.hpp"
 # include "opencv2/highgui/highgui.hpp"
+# include "opencv2/imgproc/imgproc.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -22,6 +23,8 @@
 #include <climits>
 #include <valarray>
 #include "cxxopts.hpp"
+
+#define MAX_SIZE_TO_COMPUTE_CONVEX_HULL 4000
 
 using namespace cv;
 
@@ -39,6 +42,12 @@ private:
     vector<Point> bounding_box;
     //Stores the convec hull of the region of interest
     vector<Point> convex_hull_;
+
+    //Boundary Check x coordinates
+    static bool compareX(Point lhs, Point rhs) { return lhs.x < rhs.x; };
+
+    //Boundary Check y coordinates
+    static bool compareY(Point lhs, Point rhs) { return lhs.y < rhs.y; };
 
     //Callback to get click coordinates and call FIND_REGION on theses coordinates
     static void onClick(int event, int x, int y, int flags, void *param) {
@@ -105,12 +114,6 @@ public:
 
     }
 
-    //Boundary Check x coordinates
-    static bool compareX(Point lhs, Point rhs) { return lhs.x < rhs.x; };
-
-    //Boundary Check y coordinates
-    static bool compareY(Point lhs, Point rhs) { return lhs.y < rhs.y; };
-
     //Check if point is in image bounds
     bool IsInBounds(int r, int c, int rows, int columns) {
         if (r < 0)return false;
@@ -129,6 +132,7 @@ public:
     }
 
     void convex_hull(vector<Point> roi) {
+//        sort(roi.begin(), roi.end(), compareX);
         if (roi.size() < 3) return;
         vector<Point> hull;
         int l = 0;
@@ -145,7 +149,7 @@ public:
                     q = i;
             }
             p = q;
-
+//            std::cout << p << " " << l << "\n";
         } while (p != l);  // While we don't come to first point
 
         convex_hull_ = hull;
@@ -267,7 +271,13 @@ public:
 
         //Calculate the convex hull
         std::cout << "Region Of Interest Size: " << region_of_interest.size() << "\n";
-        convex_hull(region_of_interest);
+        if (region_of_interest.size() <= MAX_SIZE_TO_COMPUTE_CONVEX_HULL) {
+            std::cout << "Finding convex hull\n";
+            convex_hull(region_of_interest);
+        } else {
+            std::cout << "Skipping Convex hull\n";
+            convex_hull_.clear();
+        }
 
         if (bounding_box_edges.size() != 2) {
             std::cout << "Could not find region\n";
@@ -396,10 +406,49 @@ public:
     }
 
     /**
+     * Use the convex hull to display the ROI
+     * @param perimeter a vector of points containing the convex hull of the roi
+     * of the area of interest
+     */
+    void DISPLAY_PIXELS_CONVEX() {
+        std::cout << "Displaying Convex Hull\n";
+        if (!src.data) {
+            std::cout << "No image selected\n";
+            return;
+        }
+
+        Mat dst;
+        Mat mask(src.rows, src.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+        std::cout << "Created Mask\n";
+        cv::Point corners[1][convex_hull_.size()];
+        for (size_t i = 0; i < convex_hull_.size(); ++i) {
+            corners[0][i] = convex_hull_[i];
+        }
+        const Point *corner_list[1] = {corners[0]};
+        std::cout << "Fill poly\n";
+        int num_points = convex_hull_.size();
+        int num_polygons = 1;
+        int line_type = 8;
+        fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255, 255, 255), line_type);
+        std::cout << "Bitwise and\n";
+        cv::bitwise_and(src, mask, dst);
+        namedWindow("Cropped Image", WINDOW_AUTOSIZE);
+        std::cout << "Imshow\n";
+        imshow("Cropped Image", dst);
+        waitKey(0);
+        std::cout << "Done\n";
+    }
+
+    /**
      * Display the already calcuated area of interest, if it exists
      */
     void DISPLAY_PIXELS() {
+        destroyAllWindows();
         if (bounding_box.size() == 0) {
+            if (convex_hull_.size() > 0) {
+                DISPLAY_PIXELS_CONVEX();
+                return;
+            }
             std::cout << "No region selected\n";
             return;
         }
@@ -407,7 +456,12 @@ public:
             std::cout << "No image selected\n";
             return;
         }
-        DISPLAY_PIXELS(perimeter);
+        if (convex_hull_.size() > 0) {
+            DISPLAY_PIXELS_CONVEX();
+            return;
+        }
+        DISPLAY_PIXELS(bounding_box);
+
     }
 
     //Save the cropped pixels
