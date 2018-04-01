@@ -37,6 +37,8 @@ private:
     vector<Point> region_of_interest;
     //Stores all the points in the bounding box of the roi
     vector<Point> bounding_box;
+    //Stores the convec hull of the region of interest
+    vector<Point> convex_hull_;
 
     //Callback to get click coordinates and call FIND_REGION on theses coordinates
     static void onClick(int event, int x, int y, int flags, void *param) {
@@ -56,6 +58,8 @@ public:
     ImageManager() {
 
     }
+
+    ~ImageManager() {}
 
     /**
      *
@@ -93,8 +97,8 @@ public:
     //Checks if two point rgb values are with in allowed thresholds
     //TODO probably replace it with a HSV comparison
     bool is_similar(cv::Vec3b p1, cv::Vec3b p2, int b_threshold, int r_threshold, int g_threshold) {
-        //std::cout<<(int)p1.val[0]<<" "<<(int)p1.val[1]<<" "<<(int)p1.val[2]<<std::endl;
-        //std::cout<<(int)p2.val[0]<<" "<<(int)p2.val[1]<<" "<<(int)p2.val[2]<<std::endl;
+//        std::cout << (int) p1.val[0] << " " << (int) p1.val[1] << " " << (int) p1.val[2] << std::endl;
+//        std::cout << (int) p2.val[0] << " " << (int) p2.val[1] << " " << (int) p2.val[2] << std::endl;
         return ((abs((int) p1[0] - (int) p2[0]) <= b_threshold) &&
                 (abs((int) p1[1] - (int) p2[1]) <= g_threshold) &&
                 (abs((int) p1[2] - (int) p2[2]) <= r_threshold));
@@ -117,21 +121,67 @@ public:
     }
 
 
+    int orientation(Point p, Point q, Point r) {
+        int val = (q.y - p.y) * (r.x - q.x) -
+                  (q.x - p.x) * (r.y - q.y);
+        if (val == 0) return 0;  // colinear
+        return (val > 0) ? 1 : 2; // clock or counterclock wise
+    }
+
+    void convex_hull(vector<Point> roi) {
+        if (roi.size() < 3) return;
+        vector<Point> hull;
+        int l = 0;
+        for (int i = 1; i < roi.size(); i++)
+            if (roi[i].x < roi[l].x)
+                l = i;
+        int p = l, q;
+        do {
+            hull.push_back(roi[p]);
+
+            q = (p + 1) % roi.size();
+            for (int i = 0; i < roi.size(); i++) {
+                if (orientation(roi[p], roi[i], roi[q]) == 2)
+                    q = i;
+            }
+            p = q;
+
+        } while (p != l);  // While we don't come to first point
+
+        convex_hull_ = hull;
+        std::cout << "Convex Hull Point: " << convex_hull_.size() << "\n";
+        // Print Result
+//        for (int i = 0; i < hull.size(); i++)
+//            cout << "(" << hull[i].x << ", "
+//                 << hull[i].y << ")\n";
+    }
+
     /**
      * Call FIND_REGION on given coordinates and save it to
      * @param x x cooodinate
      * @param y y coordinate
      */
-
     void
     FIND_REGION(int x, int y) {
         if (!src.data) {
             std::cout << "No image provided\n";
         }
-        assert(x >= 0);
-        assert(y >= 0);
-        assert(x < src.cols);
-        assert(y < src.rows);
+        if (x < 0) {
+            std::cout << "X out of bounds";
+            return;
+        }
+        if (y < 0) {
+            std::cout << "X out of bounds";
+            return;
+        }
+        if (x >= src.cols) {
+            std::cout << "X out of bounds";
+            return;
+        }
+        if (y >= src.rows) {
+            std::cout << "X out of bounds";
+            return;
+        }
         FIND_REGION(src, Point(x, y), 2, 2, 2);
     }
 
@@ -146,11 +196,20 @@ public:
      */
     void
     FIND_REGION(const Mat image, const Point &point, int b_threshold = 2, int r_threshold = 2, int g_threshold = 2) {
-        assert((b_threshold >= 0) && (b_threshold <= 255));
-        assert((r_threshold >= 0) && (r_threshold <= 255));
-        assert((g_threshold >= 0) && (g_threshold <= 255));
+        if (!((b_threshold >= 0) && (b_threshold <= 255))) {
+            std::cout << "invalid b threshold\n";
+            return;
+        }
+        if (!((r_threshold >= 0) && (r_threshold <= 255))) {
+            std::cout << "invalid r threshold\n";
+            return;
+        }
+        if (!((r_threshold >= 0) && (r_threshold <= 255))) {
+            std::cout << "invalid g threshold\n";
+            return;
+        }
+
         //std::cout<<"Find Region "<<point.x<<" "<<point.y<<std::endl;
-        Mat image_copy(image.size(), CV_8UC3, 0);
         //create point from initial given point
         Point target(point.x, point.y);
         //create a stack for floodfill
@@ -167,9 +226,8 @@ public:
         std::cout << image.cols << "x" << image.rows << "\n";
         while (!stack_.empty()) {
             Point cur = stack_.top();
-            //std::cout<<"Current Point: "<<cur.x<<" "<<cur.y<<std::endl;
-            cv::Vec3b color1 = image.at<cv::Vec3b>(Point(point.y, point.x));
-            cv::Vec3b color2 = image.at<cv::Vec3b>(Point(cur.y, cur.x));
+            cv::Vec3b color1 = image.at<cv::Vec3b>(Point(point.x, point.y));
+            cv::Vec3b color2 = image.at<cv::Vec3b>(Point(cur.x, cur.y));
             stack_.pop();
             int row = cur.y;
             int col = cur.x;
@@ -191,11 +249,11 @@ public:
                 }
                 visited_[col][row] = true;
             }
-            //std::cout<<stack_.size()<<std::endl;
         }
         //Here we get a bounding rectangle for the points
         //We could use open cv to calculate a convex hull
         region_of_interest = similar_points;
+
 
         //get the upper left and lower right corners of the bounding box
         std::pair<vector<Point>::iterator, vector<Point>::iterator> xExtremes, yExtremes;
@@ -207,13 +265,15 @@ public:
         bounding_box_edges.emplace_back(upperLeft);
         bounding_box_edges.emplace_back(lowerRight);
 
-        assert(bounding_box_edges.size() == 2);
-//        std::cout<<"Similar "<<similar_points.size()<<"\n";
-//        for(auto p: bounding_box_edges){
-//			std::cout<<p.x<<" "<<p.y<<std::endl;
-//		}
-//		similar_points.clear();
-        //find the perimeter
+        //Calculate the convex hull
+        std::cout << "Region Of Interest Size: " << region_of_interest.size() << "\n";
+        convex_hull(region_of_interest);
+
+        if (bounding_box_edges.size() != 2) {
+            std::cout << "Could not find region\n";
+            return;
+        }
+//
         FIND_PERIMETER(bounding_box_edges);
 //        return bounding_box_edges;
     }
@@ -234,20 +294,13 @@ public:
         Point upper_right(region[1].x, region[0].y);
         Point lower_left(region[0].x, region[1].y);
         perimeter.emplace_back(upper_left);
-        perimeter.emplace_back(lower_left);
         perimeter.emplace_back(lower_right);
+        perimeter.emplace_back(lower_left);
         perimeter.emplace_back(upper_right);
 
-        //bounding_box = perimeter;
-        bounding_box = region;
+        bounding_box = perimeter;
+        std::cout << "Found roi Perimeter\n";
 
-        //Display the area of interest
-//        DISPLAY_PIXELS();
-//        for(auto p: perimeter){
-//            std::cout<<p.x<<" "<<p.y<<std::endl;
-//        }
-//        std::cout<<"\n";
-//        return perimeter;
     }
 
     //Call FIND_PERIMETER with the alread stored region of interest
@@ -306,10 +359,10 @@ public:
      * @param image_name the path of the image to display
      */
     void DISPLAY_IMAGE(const string image_name) {
-        std::cout<<image_name<<std::endl;
-        src = imread(image_name.c_str());
-        if(!src.data){
-            std::cout<<"DIPLAY (string) could not load image\n";
+        std::cout << image_name << std::endl;
+        src = imread(image_name.c_str(), 1);
+        if (!src.data) {
+            std::cout << "DIPLAY (string) could not load image\n";
         }
         DISPLAY_IMAGE(src);
         region_of_interest.clear();
@@ -323,19 +376,19 @@ public:
      */
     void DISPLAY_PIXELS(vector<Point> perimeter) {
         Rect roi(perimeter[0], perimeter[1]);
-        if (perimeter[0].y == perimeter[1].y) {
-            std::cout << "Invalid Area same X for both endpoints\n";
-            return;
+        for (auto p: perimeter) {
+            std::cout << p.x << " " << p.y << std::endl;
         }
         if (perimeter[0].y == perimeter[1].y) {
+            std::cout << "Invalid Area same Y for both endpoints\n";
+            return;
+        }
+        if (perimeter[0].x == perimeter[1].x) {
             std::cout << "Invalid Area same X for both endpoints\n";
             return;
         }
         Mat cropped = src(roi);
-        for (auto p: perimeter) {
-            std::cout << p.x << " " << p.y << std::endl;
-        }
-        std::cout << "\n";
+
         namedWindow("Cropped Image", WINDOW_AUTOSIZE);
         imshow("Cropped Image", cropped);
         waitKey(0);
@@ -354,7 +407,7 @@ public:
             std::cout << "No image selected\n";
             return;
         }
-        DISPLAY_PIXELS(bounding_box);
+        DISPLAY_PIXELS(perimeter);
     }
 
     //Save the cropped pixels
@@ -377,6 +430,10 @@ public:
         } else {
             SAVE_PIXELS(region_of_interest, filename);
         }
+    }
+
+    void FIND_SMOOTH_PERIMETER() {
+
     }
 };
 
