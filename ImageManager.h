@@ -42,6 +42,8 @@ private:
 	{	
 		//std::cout<<x<<" "<<y<<std::endl;
 		ImageManager *im_this = static_cast<ImageManager*>( param);
+		//std::cout<<im_this->src.rows<<std::endl;
+		//std::cout<<im_this->src.cols<<std::endl;
 		 if  ( event == EVENT_LBUTTONDOWN )
 		 {
 			 Point event_source(x,y);
@@ -54,7 +56,7 @@ public:
     //Initialize with an image
     ImageManager(const std::string image_name, int dis = 1) {
 		namedWindow(_window_name, WINDOW_AUTOSIZE);
-		src = imread(image_name.c_str());
+		src = imread(image_name.c_str(), CV_LOAD_IMAGE_COLOR);
 		if(!src.data){
 			std::cout<<"No image read/n";
 			return;
@@ -76,12 +78,12 @@ public:
 
     //BASIC SIMILARITY FUNCTION
     //TODO probably replace it with a HSV comparison
-    bool is_similar(Vec3b p1, Vec3b p2, int b_threshold, int r_threshold, int g_threshold) {
-		std::cout<<p1.val[0]<<" "<<p1.val[1]<<" "<<p1.val[2]<<std::endl;
-		std::cout<<p2.val[0]<<" "<<p2.val[1]<<" "<<p2.val[2]<<std::endl;
-        return (abs(p1[0] - p2[0] <= b_threshold) &&
-                abs(p1[1] - p2[1] <= g_threshold) &&
-                abs(p1[2] - p2[2] <= r_threshold));
+    bool is_similar(cv::Vec3b p1, cv::Vec3b p2, int b_threshold, int r_threshold, int g_threshold) {
+		//std::cout<<(int)p1.val[0]<<" "<<(int)p1.val[1]<<" "<<(int)p1.val[2]<<std::endl;
+		//std::cout<<(int)p2.val[0]<<" "<<(int)p2.val[1]<<" "<<(int)p2.val[2]<<std::endl;
+        return ((abs((int)p1[0] - (int)p2[0]) <= b_threshold) &&
+                (abs((int)p1[1] - (int)p2[1]) <= g_threshold) &&
+                (abs((int)p1[2] - (int)p2[2]) <= r_threshold));
 
     }
 
@@ -100,6 +102,7 @@ public:
         return true;
     }
 
+	
     /**
      *
      * @param image an image to use
@@ -119,35 +122,49 @@ public:
         //create point from initial given point
         Point target(point.x, point.y);
         //create a stack for floodfill
-        std::stack<Point> stack;
-        stack.push(target);
+        std::stack<Point> stack_;
+        stack_.push(target);
+        
+		vector< vector< bool > > visited_ ( image.cols, vector<bool>( image.rows, false ) );
+		visited_[point.x][point.y] = true;
+        
         //vector that will hold the similar points
         vector<Point> similar_points;
         //flood fill and get similar points
-        while (!stack.empty()) {
-            Point cur = stack.top();
-            std::cout<<"Current Point: "<<cur.x<<" "<<cur.y<<std::endl;
-            std::cout<<"Target Point: "<<point.x<<" "<<point.y<<std::endl;
-            Vec3b color1 = image.at<Vec3b>(Point(point.y, point.x));
-            Vec3b color2 = image.at<Vec3b>(Point(cur.y, cur.x));
+        std::cout<<"Target Point: "<<point.x<<" "<<point.y<<std::endl;
+        std::cout<< image.cols<<"x"<<image.rows<<"\n";
+        while (!stack_.empty()) {
+            Point cur = stack_.top();
+            //std::cout<<"Current Point: "<<cur.x<<" "<<cur.y<<std::endl;
+            cv::Vec3b color1 = image.at<cv::Vec3b>(Point(point.y, point.x));
+            cv::Vec3b color2 = image.at<cv::Vec3b>(Point(cur.y, cur.x));
+            stack_.pop();
+            int row = cur.y;
+            int col = cur.x;
             if (is_similar(color1, color2, b_threshold,
                            r_threshold, g_threshold)) {
-                similar_points.emplace_back(cur);
-                int row = cur.x;
-                int col = cur.y;
+				similar_points.emplace_back(cur);
                 for (int dx_: dx) {
                     for (auto dy_ :dy) {
-                        if (IsInBounds(row + dy_, col + dx_, image.rows, image.cols)) {
-
+						int new_col = col + dx_;
+						int new_row = row + dy_;
+                        if (IsInBounds(new_row, new_col, image.rows, image.cols)) {
+							//std::cout<<"Adding "<<new_col<<" "<<new_row<<std::endl;
+							if(visited_[new_col][new_row]==false){
+								stack_.push(Point(new_col, new_row));
+								visited_[new_col][new_row] = true;
+							}
                         }
                     }
                 }
+                visited_[col][row] = true;
             }
-            stack.pop();
+            //std::cout<<stack_.size()<<std::endl;
         }
         //Here we get a bounding rectangle for the points
         //We could use open cv to calculate a convex hull
         region_of_interest = similar_points;
+        
         std::pair <vector<Point>::iterator, vector<Point>::iterator> xExtremes, yExtremes;
         xExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareX);
         yExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareY);
@@ -156,8 +173,9 @@ public:
         vector<Point> bounding_box_edges;
         bounding_box_edges.emplace_back(upperLeft);
         bounding_box_edges.emplace_back(lowerRight);
-        std::cout << bounding_box_edges.size()<<std::endl;
         
+        assert(bounding_box_edges.size()==2);
+        std::cout<<"Similar "<<similar_points.size()<<"\n";
         for(auto p: bounding_box_edges){
 			std::cout<<p.x<<" "<<p.y<<std::endl;
 		}
@@ -187,6 +205,9 @@ public:
 			std::cout<<p.x<<" "<<p.y<<std::endl;
 		}
 		std::cout<<"\n";
+		//bounding_box = perimeter;
+		bounding_box = region;
+		DISPLAY_PIXELS();
         return perimeter;
     }
 	
@@ -212,13 +233,15 @@ public:
      * @param image Image to display
      */
     void DISPLAY_IMAGE(const Mat image) {
+		//destroyWindow(_window_name);
         try {
             std::cout << "Press 'c' to continue\n";
             while(true){
 				imshow(_window_name, image);
-				int k = waitKey(0);
-				if ( k==27 ) break;
+				int k = waitKey(1);
+				if (k==27) break;
 			}
+		
         } catch (int e) {
             std::cout << "Could not display Image\n";
             return;
@@ -230,6 +253,7 @@ public:
      * @param image_name the path of the image to display
      */
     void DISPLAY_IMAGE(const string image_name) {
+		//destroyWindow(_window_name);
         src = imread(image_name.c_str());
         region_of_interest.clear();
         bounding_box.clear();
@@ -240,27 +264,32 @@ public:
         try {
             std::cout << "Press 'c' to continue\n";
             while(true){
-                imshow(_window_name, src);
-                int k = waitKey(0);
-                if ( k==27 ) break;
-            }
+				imshow(_window_name, src);
+				int k = waitKey(1);
+				if (k==27) break;
+			};
+            
         } catch (int e) {
             std::cout << "Could not display Image\n";
             return;
         }
     }
 
-
-
-    void DISPLAY_PIXELS(vector<Point> region) {
-		Rect roi(region[0], region[1]);
-		Mat cropped = src(roi).clone();
-		imshow(_window_name, cropped);
+    void DISPLAY_PIXELS(vector<Point> perimeter) {
+		Rect roi(perimeter[0], perimeter[1]);
+		Mat cropped = src(roi);
+		for(auto p: perimeter){
+			std::cout<<p.x<<" "<<p.y<<std::endl;
+		}
+		std::cout<<"\n";
+		namedWindow("Cropped Image", WINDOW_AUTOSIZE);
+		imshow("Cropped Image", cropped);
 		waitKey(0);
+		destroyWindow("Cropped Image");
     }
 
     void DISPLAY_PIXELS() {
-        if(region_of_interest.size() == 0){
+        if(bounding_box.size() == 0){
             std::cout<<"No region selected\n";
             return;
         }
@@ -268,7 +297,7 @@ public:
             std::cout<<"No image selected\n";
             return;
         }
-        DISPLAY_PIXELS(region_of_interest);
+        DISPLAY_PIXELS(bounding_box);
     }
 	
 	//Save the cropped pixels
