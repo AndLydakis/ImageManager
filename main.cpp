@@ -7,11 +7,14 @@
 
 using namespace std;
 
-string available_commands = "Avaible Commands\nDISPLAY\nDISPLAY <image>\nDISPLAY PIXELS\nFIND REGION\nFIND PERIMETER\nSAVE PIXELS\nQUIT\n";
+string decoration = "--------------------------------------------------------------\n";
+string available_commands = "Avaible Commands:\nDISPLAY\nDISPLAY <image>\nDISPLAY PIXELS\nFIND REGION X Y\nFIND PERIMETER\nFIND SMOOTH\nSAVE\nQUIT\n";
 
 void command_loop(ImageManager &IM) {
     string command;
+    cout << decoration;
     cout << available_commands;
+    cout << decoration;
     while (true) {
         getline(cin, command);
         if (command == "DISPLAY") {
@@ -45,19 +48,23 @@ void command_loop(ImageManager &IM) {
                     IM.FIND_REGION();
                 } else if ((tokens.size() == 2) && (tokens[1] == "PERIMETER")) {
                     IM.FIND_PERIMETER();
+                }else if ((tokens.size() == 2) && (tokens[1] == "SMOOTH")) {
+                    IM.FIND_SMOOTH_PERIMETER();
                 }
-            } else if (command == "SAVE PIXELS") {
+            } else if (command == "SAVE") {
                 if (command.substr(command.find(" ") + 1) != "") {
                     IM.SAVE_PIXELS(command.substr(command.find(" ") + 1));
                 } else {
-                    IM.SAVE_PIXELS();
+                    IM.SAVE_PIXELS("region.png");
                 }
             }
         } else if (command == "QUIT") {
             return;
-        } else {
-            cout << available_commands;
         }
+        cout << decoration;
+        cout << available_commands;
+        cout << decoration;
+
     }
 }
 

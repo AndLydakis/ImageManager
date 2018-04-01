@@ -25,7 +25,9 @@
 #include "cxxopts.hpp"
 
 #define MAX_SIZE_TO_COMPUTE_CONVEX_HULL 10000
-
+#define BT 50
+#define RT 50
+#define GT 50
 using namespace cv;
 
 /**
@@ -71,9 +73,12 @@ private:
     vector<Point> bounding_box;
     //Stores the convex hull of the region of interest
     vector<Point> convex_hull_;
-
     //Stores the smoothed convex hull of the region of interest
     vector<Point> smoothed_convex_hull_;
+    //Store the smoothed roi for saving purposes
+    Mat smoothed_roi_to_save;
+    //Store the roi for saving purposes
+    Mat roi_to_save;
 
     //Callback to get click coordinates and call FIND_REGION on theses coordinates
     static void onClick(int event, int x, int y, int flags, void *param) {
@@ -83,7 +88,7 @@ private:
         //std::cout<<im_this->src.cols<<std::endl;
         if (event == EVENT_LBUTTONDOWN) {
             Point event_source(x, y);
-            im_this->FIND_REGION(im_this->src, event_source, 2, 2, 2);
+            im_this->FIND_REGION(im_this->src, event_source, BT, RT, GT);
         }
 
     }
@@ -180,10 +185,6 @@ public:
 
         convex_hull_ = hull;
         std::cout << "Convex Hull Point: " << convex_hull_.size() << "\n";
-        // Print Result
-//        for (int i = 0; i < hull.size(); i++)
-//            cout << "(" << hull[i].x << ", "
-//                 << hull[i].y << ")\n";
     }
 
     /**
@@ -225,7 +226,7 @@ public:
      *
      */
     void
-    FIND_REGION(const Mat image, const Point &point, int b_threshold = 2, int r_threshold = 2, int g_threshold = 2) {
+    FIND_REGION(const Mat image, const Point &point, int b_threshold = BT, int r_threshold = RT, int g_threshold = GT) {
         if (!((b_threshold >= 0) && (b_threshold <= 255))) {
             std::cout << "invalid b threshold\n";
             return;
@@ -305,7 +306,7 @@ public:
             convex_hull_.clear();
         }
 
-        FIND_SMOOTH_PERIMETER();
+//        FIND_SMOOTH_PERIMETER();
 
         if (bounding_box_edges.size() != 2) {
             std::cout << "Could not find region\n";
@@ -313,7 +314,6 @@ public:
         }
 //
         FIND_PERIMETER(bounding_box_edges);
-//        return bounding_box_edges;
     }
 
     /**
@@ -371,10 +371,8 @@ public:
     void DISPLAY_IMAGE(const Mat image) {
         destroyAllWindows();
         namedWindow(_window_name, WINDOW_AUTOSIZE);
-//        cv::setMouseCallback(_window_name, &ImageManager::onClick, this);
         if (!image.data) {
             std::cout << "DISP IMG (Mat)  No image read\n";
-//            destroyWindow(_window_name);
             return;
         }
         try {
@@ -382,10 +380,6 @@ public:
             imshow(_window_name, image);
             waitKey(0);
             std::cout << "Done\n";
-//            destroyAllWindows();
-//            waitKey(25);
-
-
         } catch (int e) {
             std::cout << "Could not display Image\n";
             return;
@@ -426,7 +420,7 @@ public:
             return;
         }
         Mat cropped = src(roi);
-
+        roi_to_save = cropped;
         namedWindow("Cropped Image", WINDOW_AUTOSIZE);
         imshow("Cropped Image", cropped);
         waitKey(0);
@@ -448,13 +442,13 @@ public:
         Mat dst;
         Mat mask(src.rows, src.cols, CV_8UC3, cv::Scalar(0, 0, 0));
         std::cout << "Created Mask\n";
-        cv::Point corners[1][convex_hull_.size()];
-        for (size_t i = 0; i < convex_hull_.size(); ++i) {
-            corners[0][i] = convex_hull_[i];
+        cv::Point corners[1][smoothed_convex_hull_.size()];
+        for (size_t i = 0; i < smoothed_convex_hull_.size(); ++i) {
+            corners[0][i] = smoothed_convex_hull_[i];
         }
         const Point *corner_list[1] = {corners[0]};
         std::cout << "Fill poly\n";
-        int num_points = convex_hull_.size();
+        int num_points = smoothed_convex_hull_.size();
         int num_polygons = 1;
         int line_type = 8;
         fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255, 255, 255), line_type);
@@ -462,6 +456,7 @@ public:
         cv::bitwise_and(src, mask, dst);
         namedWindow("Cropped Image", WINDOW_AUTOSIZE);
         std::cout << "Imshow\n";
+        smoothed_roi_to_save = dst;
         imshow("Cropped Image", dst);
         waitKey(0);
         std::cout << "Done\n";
@@ -473,8 +468,12 @@ public:
     void DISPLAY_PIXELS() {
         destroyAllWindows();
         if (bounding_box.size() == 0) {
-            if (convex_hull_.size() > 0) {
+            if (smoothed_convex_hull_.size() > 0) {
                 DISPLAY_PIXELS_CONVEX();
+                return;
+            }
+            if (convex_hull_.size() > 0) {
+                DISPLAY_PIXELS(convex_hull_);
                 return;
             }
             std::cout << "No region selected\n";
@@ -488,30 +487,33 @@ public:
             DISPLAY_PIXELS_CONVEX();
             return;
         }
-        DISPLAY_PIXELS(bounding_box);
-
-    }
-
-    //Save the cropped pixels
-    /**
-     * Save the already calcuated area of interest, if it exists
-     */
-    void SAVE_PIXELS(vector<Point> region, string filename = "region.jpg") {
-        if (region_of_interest.size() == 0) {
-            std::cout << "No region selected\n";
+        if (convex_hull_.size() > 0) {
+            DISPLAY_PIXELS(convex_hull_);
             return;
         }
-        Rect roi(region[0], region[1]);
-        Mat cropped = src(roi).clone();
-        imwrite(filename, cropped);
+        if (bounding_box.size() > 0) {
+            DISPLAY_PIXELS(bounding_box);
+            return;
+        }
+        std::cerr << "Could not display pixels\n";
+
     }
 
-    void SAVE_PIXELS(string filename = "region.jpg") {
-        if (region_of_interest.size() == 0) {
-            std::cout << "No data available to save\n";
-        } else {
-            SAVE_PIXELS(region_of_interest, filename);
+    void SAVE_PIXELS(string filename = "region.png") {
+        int cnt = 0;
+        if (roi_to_save.data) {
+            bool check = imwrite(filename, roi_to_save);
+            if (!check) {
+                std::cout << "Could not save roi\n";
+            }
         }
+        if (smoothed_roi_to_save.data) {
+            bool check = imwrite("smooth_" + filename, smoothed_roi_to_save);
+            if (!check) {
+                std::cout << "Could not save smooth roi\n";
+            }
+        }
+        std::cout << cnt << " file saved\n";
     }
 
     float tj(float t, Point p0, Point p1) {
@@ -536,11 +538,9 @@ public:
             A1.x = (t1 - t) / (t1 - t0) * p0.x + (t1 - t) / (t1 - t0) * p1.x;
             A1.y = (t1 - t) / (t1 - t0) * p0.y + (t1 - t) / (t1 - t0) * p1.y;
 
-
             Point A2;
             A2.x = (t2 - t) / (t2 - t1) * p1.x + (t2 - t1) / (t2 - t1) * p2.x;
             A2.y = (t2 - t) / (t2 - t1) * p1.y + (t2 - t1) / (t2 - t1) * p2.y;
-
 
             Point A3;
             A3.x = (t3 - t) / (t3 - t2) * p2.x + (t3 - t) / (t3 - t2) * p3.x;
@@ -549,7 +549,6 @@ public:
             Point B1;
             B1.x = (t2 - t) / (t2 - t0) * A1.x + (t - t0) / (t2 - t0) * A2.x;
             B1.y = (t2 - t) / (t2 - t0) * A1.y + (t - t0) / (t2 - t0) * A2.y;
-
 
             Point B2;
             B2.x = (t3 - t) / (t3 - t1) * A2.x + (t - t1) / (t3 - t1) * A3.x;
