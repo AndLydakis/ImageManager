@@ -53,11 +53,20 @@ private:
 	}
 	
 public:
-    //Initialize with an image
+
+    ImageManager() {
+
+    }
+
+    /**
+     *
+     * @param image_name the path of the image to load as a string
+     * @param dis 1 if you want to display the image immediately, 0 otherwise
+     */
     ImageManager(const std::string image_name, int dis = 1) {
 		src = imread(image_name.c_str(), CV_LOAD_IMAGE_COLOR);
 		if(!src.data){
-			std::cout<<"No image read\n";
+			std::cout<<"No image read in constructor\n";
 			return;
 		}
 		if(dis==1){
@@ -65,11 +74,12 @@ public:
 		}
     }
 
-	ImageManager() {
-		
-    }
+
     
-    //Change the image used
+    /**
+     * Changes the image that is being used
+     * @param image_name the image name to use as a source from now on
+     */
 	void changeSrc(const std::string image_name){
 		src = imread(image_name.c_str());
 		if(!src.data){
@@ -110,16 +120,13 @@ public:
     }
 
 	
+
     /**
-     *
-     * @param image an image to use
-     * @param point the source point that we are investating
-     * @param b_threshold similarity threshold for blue color
-     * @param r_threshold similarity threshold for red color
-     * @param g_threshold similarity threshold for green color
-     * @return a vector of points similar in color to the source point
+     * Call FIND_REGION on given coordinates
+     * @param x x cooodinate
+     * @param y y coordinate
+     * @return the vector containing all the similar points
      */
-     
     vector<Point>
     FIND_REGION(int x, int y){
 		if(!src.data){
@@ -132,6 +139,16 @@ public:
 		assert(y<src.rows);
 		FIND_REGION(src, Point(x, y), 2, 2, 2);
 	}
+
+    /**
+     *
+     * @param image an image to use
+     * @param point the source point that we are investating
+     * @param b_threshold similarity threshold for blue color
+     * @param r_threshold similarity threshold for red color
+     * @param g_threshold similarity threshold for green color
+     * @return a vector of points similar in color to the source point
+     */
     vector<Point>
     FIND_REGION(const Mat image, const Point &point, int b_threshold = 2, int r_threshold = 2, int g_threshold = 2) {
         assert((b_threshold >= 0) && (b_threshold <= 255));
@@ -184,7 +201,8 @@ public:
         //Here we get a bounding rectangle for the points
         //We could use open cv to calculate a convex hull
         region_of_interest = similar_points;
-        
+
+        //get the upper left and lower right corners of the bounding box
         std::pair <vector<Point>::iterator, vector<Point>::iterator> xExtremes, yExtremes;
         xExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareX);
         yExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareY);
@@ -195,17 +213,22 @@ public:
         bounding_box_edges.emplace_back(lowerRight);
         
         assert(bounding_box_edges.size()==2);
-        std::cout<<"Similar "<<similar_points.size()<<"\n";
-        for(auto p: bounding_box_edges){
-			std::cout<<p.x<<" "<<p.y<<std::endl;
-		}
-		similar_points.clear();
+//        std::cout<<"Similar "<<similar_points.size()<<"\n";
+//        for(auto p: bounding_box_edges){
+//			std::cout<<p.x<<" "<<p.y<<std::endl;
+//		}
+//		similar_points.clear();
+
+
+        //find the perimeter
 		FIND_PERIMETER(bounding_box_edges);
         return bounding_box_edges;
 
     }
  
     /**
+     * Get the bounding box of the points from FIND_REGION
+     * Ideally we could use opencv's convex hull to be more precise
      *
      * @param region a vector of points containing the upper left and lowe right
      * of a region of interest
@@ -222,16 +245,19 @@ public:
 		perimeter.emplace_back(lower_left);
 		perimeter.emplace_back(lower_right);
 		perimeter.emplace_back(upper_right);
-		for(auto p: perimeter){
-			std::cout<<p.x<<" "<<p.y<<std::endl;
-		}
-		std::cout<<"\n";
+//		for(auto p: perimeter){
+//			std::cout<<p.x<<" "<<p.y<<std::endl;
+//		}
+//		std::cout<<"\n";
 		//bounding_box = perimeter;
 		bounding_box = region;
+
+		//Display the area of interest
 		DISPLAY_PIXELS();
         return perimeter;
     }
-	
+
+    //Call FIND_PERIMETER with the alread stored region of interest
 	void FIND_PERIMETER(){
 		if(region_of_interest.size()==0){
 			std::cout<<"No data available\n";
@@ -239,7 +265,8 @@ public:
 			FIND_PERIMETER(region_of_interest);
 		}
 	}
-	
+
+	//Start up the window to get the point of interest by clicking
 	void FIND_REGION(){
 		DISPLAY_IMAGE();
 	}
@@ -311,6 +338,11 @@ public:
 		destroyWindow(_window_name);
     }
 
+    /**
+     *
+     * @param perimeter a vector of points containing the corners of the bounding box
+     * of the area of interest
+     */
     void DISPLAY_PIXELS(vector<Point> perimeter) {
 		Rect roi(perimeter[0], perimeter[1]);
 		if(perimeter[0].y==perimeter[1].y){
@@ -329,9 +361,12 @@ public:
 		namedWindow("Cropped Image", WINDOW_AUTOSIZE);
 		imshow("Cropped Image", cropped);
 		waitKey(0);
-		destroyWindow("Cropped Image");
+		//destroyWindow("Cropped Image");
     }
 
+    /**
+     * Display the already calcuated area of interest, if it exists
+     */
     void DISPLAY_PIXELS() {
         if(bounding_box.size() == 0){
             std::cout<<"No region selected\n";
@@ -345,21 +380,24 @@ public:
     }
 	
 	//Save the cropped pixels
-    void SAVE_PIXELS(vector<Point> region) {
+    /**
+     * Save the already calcuated area of interest, if it exists
+     */
+    void SAVE_PIXELS(vector<Point> region, string filename = "region.jpg") {
 		if(region_of_interest.size() == 0){
 			std::cout<<"No region selected\n";
 			return;
 		}
 		Rect roi(region[0], region[1]);
 		Mat cropped = src(roi).clone();
-		imwrite( "region.jpg", cropped);
+		imwrite(filename, cropped);
     }
     
-    void SAVE_PIXELS(){
+    void SAVE_PIXELS(string filename = "region.jpg"){
 		if(region_of_interest.size()==0){
 			std::cout<<"No data available to save\n";
 		}else{
-			SAVE_PIXELS(region_of_interest);
+			SAVE_PIXELS(region_of_interest, filename);
 		}
 	}
 };
