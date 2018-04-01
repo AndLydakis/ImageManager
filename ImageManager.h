@@ -33,7 +33,9 @@ private:
     vector<int> dy = {0, 0, 1, -1};
     const string _window_name = "Image Manager";
     Mat src;
+    //Stores all the points in the region of interest
     vector<Point> region_of_interest;
+    //Stores all the points in the bounding box of the roi
     vector<Point> bounding_box;
 
     //Callback to get click coordinates and call FIND_REGION on theses coordinates
@@ -116,11 +118,11 @@ public:
 
 
     /**
-     * Call FIND_REGION on given coordinates
+     * Call FIND_REGION on given coordinates and save it to
      * @param x x cooodinate
      * @param y y coordinate
-     * @return the vector containing all the similar points
      */
+
     void
     FIND_REGION(int x, int y) {
         if (!src.data) {
@@ -134,13 +136,13 @@ public:
     }
 
     /**
-     *
+     * FIND THE REGION OF INTEREST and save it to bounding_box
      * @param image an image to use
      * @param point the source point that we are investating
      * @param b_threshold similarity threshold for blue color
      * @param r_threshold similarity threshold for red color
      * @param g_threshold similarity threshold for green color
-     * @return a vector of points similar in color to the source point
+     *
      */
     void
     FIND_REGION(const Mat image, const Point &point, int b_threshold = 2, int r_threshold = 2, int g_threshold = 2) {
