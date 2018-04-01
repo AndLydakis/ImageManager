@@ -14,10 +14,13 @@ void command_loop(ImageManager& IM){
 			if(command=="DISPLAY IMAGE"){
 				IM.DISPLAY_IMAGE();
 			}else if(command == "DISPLAY PIXELS"){
+				IM.DISPLAY_PIXELS()
 			}else if(command == "FIND REGION"){
 				IM.FIND_REGION();
 			}else if(command == "FIND PERIMETER"){
+				IM.FIND_PERIMETER();
 			}else if(command == "SAVE PIXELS"){
+				IM.SAVE_PIXELS()
 			}else if(command == "QUIT"){
 				return;
 			}else{
