@@ -35,7 +35,7 @@ private:
     const string _window_name = "Image Manager";
     Mat src;
     vector<Point> region_of_interest;
-    vecotr<Point> bounding_box;
+    vector<Point> bounding_box;
 
     //Callback to get click coordinates and call FIND_REGION on theses coordinates
 	static void onClick(int event, int x, int y, int flags, void* param)
@@ -147,7 +147,7 @@ public:
         }
         //Here we get a bounding rectangle for the points
         //We could use open cv to calculate a convex hull
-        region_of_interest = similar_points
+        region_of_interest = similar_points;
         std::pair <vector<Point>::iterator, vector<Point>::iterator> xExtremes, yExtremes;
         xExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareX);
         yExtremes = std::minmax_element(similar_points.begin(), similar_points.end(), compareY);
@@ -226,14 +226,14 @@ public:
         src = imread(image_name.c_str());
         region_of_interest.clear();
         bounding_box.clear();
-        if(!image.data){
+        if(!src.data){
             std::cout<<"No image read/n";
             return;
         }
         try {
             std::cout << "Press 'c' to continue\n";
             while(true){
-                imshow(_window_name, image);
+                imshow(_window_name, src);
                 int k = waitKey(0);
                 if ( k==27 ) break;
             }
