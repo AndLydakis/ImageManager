@@ -26,7 +26,7 @@
 
 //We may not want to calculate the convex hull
 //for ROIS over a certain size
-#define MAX_SIZE_TO_COMPUTE_CONVEX_HULL 10000
+#define MAX_SIZE_TO_COMPUTE_CONVEX_HULL 10000000
 
 //Similarity threshold for blue
 int BT = 2;
