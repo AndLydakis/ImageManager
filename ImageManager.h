@@ -24,9 +24,14 @@
 #include <valarray>
 #include "cxxopts.hpp"
 
+//We may not want to calculate the convex hull
+//for ROIS over a certain size
 #define MAX_SIZE_TO_COMPUTE_CONVEX_HULL 10000
+//Similarity threshold for blue
 #define BT 50
+//Similarity threshold for red
 #define RT 50
+//Similarity threshold for green
 #define GT 50
 using namespace cv;
 
@@ -80,7 +85,15 @@ private:
     //Store the roi for saving purposes
     Mat roi_to_save;
 
-    //Callback to get click coordinates and call FIND_REGION on theses coordinates
+
+    /**
+     * Function to listen for clicks in an image, currently not used
+     * @param event a click event
+     * @param x coordinate of event
+     * @param y coordinate of event
+     * @param flags openCV flags
+     * @param param parameters we might want to pass to the function
+     */
     static void onClick(int event, int x, int y, int flags, void *param) {
         //std::cout<<x<<" "<<y<<std::endl;
         ImageManager *im_this = static_cast<ImageManager *>( param);
@@ -107,7 +120,6 @@ public:
      * @param dis 1 if you want to display the image immediately, 0 otherwise
      */
     ImageManager(const std::string image_name) {
-//        namedWindow(_window_name, WINDOW_AUTOSIZE);
         src = imread(image_name.c_str(), CV_LOAD_IMAGE_COLOR);
         if (!src.data) {
             std::cout << "No image read in constructor\n";
@@ -128,24 +140,31 @@ public:
         }
     }
 
-    //Close the plot window
-    void closeWindow() {
-        destroyWindow(_window_name);
-    }
-
-    //BASIC SIMILARITY FUNCTION
-    //Checks if two point rgb values are with in allowed thresholds
     //TODO probably replace it with a HSV comparison
+    /**
+     * Similarity function for two RGB points
+     * @param p1 point 1
+     * @param p2 point 2
+     * @param b_threshold similarity threshold for blue value
+     * @param r_threshold similarity threshold for red value
+     * @param g_threshold similarity threshold for green value
+     * @return
+     */
     bool is_similar(cv::Vec3b p1, cv::Vec3b p2, int b_threshold, int r_threshold, int g_threshold) {
-//        std::cout << (int) p1.val[0] << " " << (int) p1.val[1] << " " << (int) p1.val[2] << std::endl;
-//        std::cout << (int) p2.val[0] << " " << (int) p2.val[1] << " " << (int) p2.val[2] << std::endl;
         return ((abs((int) p1[0] - (int) p2[0]) <= b_threshold) &&
                 (abs((int) p1[1] - (int) p2[1]) <= g_threshold) &&
                 (abs((int) p1[2] - (int) p2[2]) <= r_threshold));
 
     }
 
-    //Check if point is in image bounds
+    /**
+     * Check if a point is within allowed bounds of a 2D matrix
+     * @param r current row
+     * @param c current column
+     * @param rows number of rows in the matrix
+     * @param columns number of columns in the matrix
+     * @return true if the point is in bounds, false otherwise
+     */
     bool IsInBounds(int r, int c, int rows, int columns) {
         if (r < 0)return false;
         if (c < 0)return false;
@@ -155,36 +174,54 @@ public:
     }
 
 
+    /**
+     * Orientation function for the calculation of the
+     * convex hull
+     * @param p first point
+     * @param q second point
+     * @param r third point
+     * @return
+     */
     int orientation(Point p, Point q, Point r) {
         int val = (q.y - p.y) * (r.x - q.x) -
                   (q.x - p.x) * (r.y - q.y);
-        if (val == 0) return 0;  // colinear
-        return (val > 0) ? 1 : 2; // clock or counterclock wise
+        if (val == 0) return 0;
+        return (val > 0) ? 1 : 2;
     }
 
+    /**
+     * Brute force algorithm to get the
+     * convex hull of a set of points
+     *
+     * Populates the convex_hull attribute
+     *
+     * @param roi the Region of interest represented
+     * as a list of points
+     *
+     */
     void convex_hull(vector<Point> roi) {
-//        sort(roi.begin(), roi.end(), compareX);
         if (roi.size() < 3) return;
         vector<Point> hull;
         int l = 0;
+        //Find left most point
         for (int i = 1; i < roi.size(); i++)
             if (roi[i].x < roi[l].x)
                 l = i;
         int p = l, q;
+
+        //Keep looking for q such that q,p,r are clockwise
+        //for all other points r
         do {
             hull.push_back(roi[p]);
-
             q = (p + 1) % roi.size();
             for (int i = 0; i < roi.size(); i++) {
                 if (orientation(roi[p], roi[i], roi[q]) == 2)
                     q = i;
             }
             p = q;
-//            std::cout << p << " " << l << "\n";
-        } while (p != l);  // While we don't come to first point
-
+        } while (p != l);
         convex_hull_ = hull;
-        std::cout << "Convex Hull Points: " << convex_hull_.size() << "\n";
+//        std::cout << "Convex Hull Points: " << convex_hull_.size() << "\n";
     }
 
     /**
@@ -213,7 +250,7 @@ public:
             std::cout << "X out of bounds";
             return;
         }
-        FIND_REGION(src, Point(x, y), 2, 2, 2);
+        FIND_REGION(src, Point(x, y));
     }
 
     /**
@@ -228,19 +265,18 @@ public:
     void
     FIND_REGION(const Mat image, const Point &point, int b_threshold = BT, int r_threshold = RT, int g_threshold = GT) {
         if (!((b_threshold >= 0) && (b_threshold <= 255))) {
-            std::cout << "invalid b threshold\n";
+            std::cerr << "invalid b threshold\n";
             return;
         }
         if (!((r_threshold >= 0) && (r_threshold <= 255))) {
-            std::cout << "invalid r threshold\n";
+            std::cerr << "invalid r threshold\n";
             return;
         }
         if (!((r_threshold >= 0) && (r_threshold <= 255))) {
-            std::cout << "invalid g threshold\n";
+            std::cerr << "invalid g threshold\n";
             return;
         }
 
-        //std::cout<<"Find Region "<<point.x<<" "<<point.y<<std::endl;
         //create point from initial given point
         Point target(point.x, point.y);
         //create a stack for floodfill
@@ -252,9 +288,10 @@ public:
 
         //vector that will hold the similar points
         vector<Point> similar_points;
+
         //flood fill and get similar points
-        std::cout << "Target Point: " << point.x << " " << point.y << std::endl;
-        std::cout << image.cols << "x" << image.rows << "\n";
+//        std::cout << "Target Point: " << point.x << " " << point.y << std::endl;
+//        std::cout << image.cols << "x" << image.rows << "\n";
         while (!stack_.empty()) {
             Point cur = stack_.top();
             cv::Vec3b color1 = image.at<cv::Vec3b>(Point(point.x, point.y));
@@ -270,7 +307,6 @@ public:
                         int new_col = col + dx_;
                         int new_row = row + dy_;
                         if (IsInBounds(new_row, new_col, image.rows, image.cols)) {
-                            //std::cout<<"Adding "<<new_col<<" "<<new_row<<std::endl;
                             if (visited_[new_col][new_row] == false) {
                                 stack_.push(Point(new_col, new_row));
                                 visited_[new_col][new_row] = true;
@@ -281,6 +317,7 @@ public:
                 visited_[col][row] = true;
             }
         }
+
         //Here we get a bounding rectangle for the points
         //We could use open cv to calculate a convex hull
         region_of_interest = similar_points;
@@ -299,20 +336,18 @@ public:
         //Calculate the convex hull
         std::cout << "Region Of Interest Size: " << region_of_interest.size() << "\n";
         if (region_of_interest.size() <= MAX_SIZE_TO_COMPUTE_CONVEX_HULL) {
-            std::cout << "Finding convex hull\n";
+//            std::cout << "Finding convex hull\n";
             convex_hull(region_of_interest);
         } else {
-            std::cout << "Skipping Convex hull\n";
+//            std::cout << "Skipping Convex hull\n";
             convex_hull_.clear();
         }
 
-//        FIND_SMOOTH_PERIMETER();
-
         if (bounding_box_edges.size() != 2) {
-            std::cout << "Could not find region\n";
+            std::err << "Could not find region\n";
             return;
         }
-//
+
         FIND_PERIMETER(bounding_box_edges);
     }
 
@@ -325,7 +360,7 @@ public:
      * @return the four corners of the bounding box
      */
     void FIND_PERIMETER(vector<Point> region) {
-        std::cout << "Find Perimeter\n";
+//        std::cout << "Find Perimeter\n";
         vector<Point> perimeter;
         Point upper_left(region[0]);
         Point lower_right(region[1]);
@@ -337,11 +372,11 @@ public:
         perimeter.emplace_back(upper_right);
 
         bounding_box = perimeter;
-        std::cout << "Found roi Perimeter\n";
+//        std::cout << "Found roi Perimeter\n";
 
     }
 
-    //Call FIND_PERIMETER with the alread stored region of interest
+    //Call FIND_PERIMETER with the already stored region of interest
     void FIND_PERIMETER() {
         if (region_of_interest.size() == 0) {
             std::cout << "No data available\n";
@@ -355,10 +390,12 @@ public:
 //        DISPLAY_IMAGE();
     }
 
-    //Display an alread loaded image
+    /**
+     * Display an already loaded image if available
+     */
     void DISPLAY_IMAGE() {
         if (!src.data) {
-            std::cout << "No image loaded\n";
+            std::cerr << "No image loaded\n";
             return;
         }
         DISPLAY_IMAGE(src);
@@ -372,16 +409,15 @@ public:
         destroyAllWindows();
         namedWindow(_window_name, WINDOW_AUTOSIZE);
         if (!image.data) {
-            std::cout << "DISP IMG (Mat)  No image read\n";
+            std::cerr << "DISP IMG (Mat)  No image read\n";
             return;
         }
         try {
             std::cout << "Press any key to continue\n";
             imshow(_window_name, image);
             waitKey(0);
-            std::cout << "Done\n";
         } catch (int e) {
-            std::cout << "Could not display Image\n";
+            std::cerr << "Could not display Image\n";
             return;
         }
     }
@@ -394,29 +430,30 @@ public:
         std::cout << image_name << std::endl;
         src = imread(image_name.c_str(), 1);
         if (!src.data) {
-            std::cout << "DIPLAY (string) could not load image\n";
+            std::cerr << "DIPLAY (string) could not load image\n";
         }
         DISPLAY_IMAGE(src);
+        //If we loaded a new image clear our variables
         region_of_interest.clear();
         bounding_box.clear();
     }
 
     /**
-     *
+     * Display the ROI based on a simple rectangle if we don't have convex hull
      * @param perimeter a vector of points containing the corners of the bounding box
      * of the area of interest
      */
     void DISPLAY_PIXELS(vector<Point> perimeter) {
         Rect roi(perimeter[0], perimeter[1]);
         for (auto p: perimeter) {
-            std::cout << p.x << " " << p.y << std::endl;
+            std::cerr << p.x << " " << p.y << std::endl;
         }
         if (perimeter[0].y == perimeter[1].y) {
-            std::cout << "Invalid Area same Y for both endpoints\n";
+            std::cerr << "Invalid Area same Y for both endpoints\n";
             return;
         }
         if (perimeter[0].x == perimeter[1].x) {
-            std::cout << "Invalid Area same X for both endpoints\n";
+            std::cerr << "Invalid Area same X for both endpoints\n";
             return;
         }
         Mat cropped = src(roi);
@@ -424,7 +461,6 @@ public:
         namedWindow("Cropped Image", WINDOW_AUTOSIZE);
         imshow("Cropped Image", cropped);
         waitKey(0);
-        //destroyWindow("Cropped Image");
     }
 
     /**
@@ -432,34 +468,42 @@ public:
      * @param perimeter a vector of points containing the convex hull of the roi
      * of the area of interest
      */
-    void DISPLAY_PIXELS_CONVEX(vector<Point> hull) {
-        std::cout << "Displaying Convex Hull\n";
+    void DISPLAY_PIXELS_CONVEX(vector<Point> hull, int i) {
         if (!src.data) {
-            std::cout << "No image selected\n";
+            std::cerr << "No image selected\n";
             return;
         }
 
         Mat dst;
+        //Create a mask
         Mat mask(src.rows, src.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-        std::cout << "Created Mask\n";
+//        std::cout << "Created Mask\n";
         cv::Point corners[1][hull.size()];
         for (size_t i = 0; i < hull.size(); ++i) {
             corners[0][i] = hull[i];
         }
         const Point *corner_list[1] = {corners[0]};
-        std::cout << "Fill poly\n";
+//        std::cout << "Fill poly\n";
         int num_points = hull.size();
         int num_polygons = 1;
         int line_type = 8;
+        //Create the polygon based on the convex hull points, and use it on the mask
         fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255, 255, 255), line_type);
-        std::cout << "Bitwise and\n";
+//        std::cout << "Bitwise and\n";
+        //Use the mask on our image
         cv::bitwise_and(src, mask, dst);
         namedWindow("Cropped Image", WINDOW_AUTOSIZE);
-        std::cout << "Imshow\n";
-        smoothed_roi_to_save = dst;
+//        std::cout << "Imshow\n";
+        //Save the ROIs to the appropriate
+        //attribute depending on which convex hull we used (smoothed or not)
+        if (i == 1) {
+            smoothed_roi_to_save = dst;
+        } else {
+            roi_to_save = dst;
+        }
         imshow("Cropped Image", dst);
         waitKey(0);
-        std::cout << "Done\n";
+//        std::cout << "Done\n";
     }
 
     /**
@@ -467,28 +511,18 @@ public:
      */
     void DISPLAY_PIXELS() {
         destroyAllWindows();
-//        if (bounding_box.size() == 0) {
-//            if (smoothed_convex_hull_.size() > 0) {
-//                DISPLAY_PIXELS_CONVEX(smoothed_convex_hull_);
-//                return;
-//            }
-//            if (convex_hull_.size() > 0) {
-//                DISPLAY_PIXELS_CONVEX(convex_hull_);
-//                return;
-//            }
-//            std::cout << "No region selected\n";
-//            return;
-//        }
         if (!src.data) {
-            std::cout << "No image selected\n";
+            std::cerr << "No image selected\n";
             return;
         }
         if (smoothed_convex_hull_.size() > 0) {
-            DISPLAY_PIXELS_CONVEX(smoothed_convex_hull_);
+//            std::cerr << "Displaying Smoothed Hull\n";
+            DISPLAY_PIXELS_CONVEX(smoothed_convex_hull_, 1);
             return;
         }
         if (convex_hull_.size() > 0) {
-            DISPLAY_PIXELS_CONVEX(convex_hull_);
+//            std::cerr << "Displaying Convex Hull\n";
+            DISPLAY_PIXELS_CONVEX(convex_hull_, 0);
             return;
         }
         if (bounding_box.size() > 0) {
@@ -499,33 +533,57 @@ public:
 
     }
 
+    /**
+     * Method to save the computed ROIs
+     * the method will add the prefix smoothed_ if the smoothed convex
+     * hull is available
+     * @param filename a file name to use, defaults to region.png
+     *
+     */
     void SAVE_PIXELS(string filename = "region.png") {
         int cnt = 0;
+        if ((!roi_to_save.data) && (!smoothed_roi_to_save.data))DISPLAY_PIXELS();
         if (roi_to_save.data) {
+            std::cout << "Saving ROI to " << filename << std::endl;
             bool check = imwrite(filename, roi_to_save);
-            if (!check) {
-                std::cout << "Could not save roi\n";
-            }
+            if (!check) std::cout << "Could not save roi\n";
+            else cnt++;
         }
         if (smoothed_roi_to_save.data) {
+            std::cout << "Saving smooth ROI to " << "smooth_" + filename << std::endl;
             bool check = imwrite("smooth_" + filename, smoothed_roi_to_save);
-            if (!check) {
-                std::cout << "Could not save smooth roi\n";
-            }
+            if (!check) std::cout << "Could not save smooth roi\n";
+            else cnt++;
         }
-        std::cout << cnt << " file saved\n";
+        std::cout << cnt << " file(s) saved\n";
     }
 
+
+    /**
+     * Method to calculate knot j for points p0 and p1
+     * @param t
+     * @param p0 point 1
+     * @param p1 point 2
+     * @return
+     */
     float tj(float t, Point p0, Point p1) {
         float alpha = 0.5f;
         float a = pow((p1.x - p0.x), 2.0f) + pow((p1.y - p0.y), 2.0f);
         float b = pow(a, 0.5f);
         float c = pow(b, alpha);
-
         return (c + t);
     }
 
-    vector<Point> CatMulSplineInterval(Point p0, Point p1, Point p2, Point p3, int num_points = 20) {
+    /**
+     * Calculate the Catmull-Rom spline for points p1-4
+     * @param p0 point 0
+     * @param p1 point 1
+     * @param p2 point 2
+     * @param p3 point 3
+     * @param num_points the number of points in the current part of the curve
+     * @return a vector of points containing the points in the current part of the curve
+     */
+    vector<Point> CatmullRomSplineInterval(Point p0, Point p1, Point p2, Point p3, int num_points = 200) {
         float t0 = 0;
         float t1 = tj(t0, p0, p1);
         float t2 = tj(t1, p1, p2);
@@ -565,37 +623,42 @@ public:
         return C;
     }
 
-    void CatMulSpline() {
+    /**
+     * Method to smooth the available convex hull by calculating
+     * Catmull-Rom splines of default length 100 using 4 point windows
+     * from the original convex hull
+     */
+    void CatmullRomSpline() {
         size_t size = convex_hull_.size();
-        if (size <= 4) {
-            smoothed_convex_hull_ = convex_hull_;
-        }
         vector<Point> c;
         for (int i = 0; i < size - 3; ++i) {
-            c = CatMulSplineInterval(convex_hull_[i], convex_hull_[i + 1], convex_hull_[i + 2], convex_hull_[i + 3]);
+            c = CatmullRomSplineInterval(convex_hull_[i], convex_hull_[i + 1], convex_hull_[i + 2], convex_hull_[i + 3]);
             copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
         }
-
-        c = CatMulSplineInterval(convex_hull_[size - 3], convex_hull_[size - 2], convex_hull_[size - 1],
+        //Run for the last points to create the loop
+        c = CatmullRomSplineInterval(convex_hull_[size - 3], convex_hull_[size - 2], convex_hull_[size - 1],
                                  convex_hull_[0]);
         copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
 
-        c = CatMulSplineInterval(convex_hull_[size - 2], convex_hull_[size - 1], convex_hull_[0], convex_hull_[1]);
+        c = CatmullRomSplineInterval(convex_hull_[size - 2], convex_hull_[size - 1], convex_hull_[0], convex_hull_[1]);
         copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
 
-        c = CatMulSplineInterval(convex_hull_[size - 1], convex_hull_[0], convex_hull_[1], convex_hull_[2]);
+        c = CatmullRomSplineInterval(convex_hull_[size - 1], convex_hull_[0], convex_hull_[1], convex_hull_[2]);
         copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
-
-        std::cout << "Smoothed convex hull size: " << smoothed_convex_hull_.size() << std::endl;
+//        std::cout << "Smoothed convex hull size: " << smoothed_convex_hull_.size() << std::endl;
     }
 
+    /**
+     * RUN THE SMOOTHING FUNCTION
+     */
     void FIND_SMOOTH_PERIMETER() {
-        std::cout << "Find Smooth Perimeter" << std::endl;
+//        std::cout << "Find Smooth Perimeter" << std::endl;
         if (convex_hull_.size() <= 4) {
-            std::cout << "Cannot smooth detected region\n";
+            std::cerr << "Cannot smooth detected region\n";
+            smoothed_convex_hull_ = convex_hull_;
             return;
         }
-        CatMulSpline();
+        CatmullRomSpline();
     }
 };
 

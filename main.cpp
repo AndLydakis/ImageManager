@@ -48,15 +48,15 @@ void command_loop(ImageManager &IM) {
                     IM.FIND_REGION();
                 } else if ((tokens.size() == 2) && (tokens[1] == "PERIMETER")) {
                     IM.FIND_PERIMETER();
-                }else if ((tokens.size() == 2) && (tokens[1] == "SMOOTH")) {
+                } else if ((tokens.size() == 2) && (tokens[1] == "SMOOTH")) {
                     IM.FIND_SMOOTH_PERIMETER();
                 }
-            } else if (command == "SAVE") {
-                if (command.substr(command.find(" ") + 1) != "") {
-                    IM.SAVE_PIXELS(command.substr(command.find(" ") + 1));
-                } else {
-                    IM.SAVE_PIXELS("region.png");
-                }
+            }
+        } else if (command.find("SAVE") != std::string::npos) {
+            if (command.find(' ') != std::string::npos) {
+                IM.SAVE_PIXELS(command.substr(command.find(' ') + 1));
+            } else {
+                IM.SAVE_PIXELS("region.png");
             }
         } else if (command == "QUIT") {
             return;
