@@ -184,7 +184,7 @@ public:
         } while (p != l);  // While we don't come to first point
 
         convex_hull_ = hull;
-        std::cout << "Convex Hull Point: " << convex_hull_.size() << "\n";
+        std::cout << "Convex Hull Points: " << convex_hull_.size() << "\n";
     }
 
     /**
@@ -432,7 +432,7 @@ public:
      * @param perimeter a vector of points containing the convex hull of the roi
      * of the area of interest
      */
-    void DISPLAY_PIXELS_CONVEX() {
+    void DISPLAY_PIXELS_CONVEX(vector<Point> hull) {
         std::cout << "Displaying Convex Hull\n";
         if (!src.data) {
             std::cout << "No image selected\n";
@@ -442,13 +442,13 @@ public:
         Mat dst;
         Mat mask(src.rows, src.cols, CV_8UC3, cv::Scalar(0, 0, 0));
         std::cout << "Created Mask\n";
-        cv::Point corners[1][smoothed_convex_hull_.size()];
-        for (size_t i = 0; i < smoothed_convex_hull_.size(); ++i) {
-            corners[0][i] = smoothed_convex_hull_[i];
+        cv::Point corners[1][hull.size()];
+        for (size_t i = 0; i < hull.size(); ++i) {
+            corners[0][i] = hull[i];
         }
         const Point *corner_list[1] = {corners[0]};
         std::cout << "Fill poly\n";
-        int num_points = smoothed_convex_hull_.size();
+        int num_points = hull.size();
         int num_polygons = 1;
         int line_type = 8;
         fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255, 255, 255), line_type);
@@ -467,28 +467,28 @@ public:
      */
     void DISPLAY_PIXELS() {
         destroyAllWindows();
-        if (bounding_box.size() == 0) {
-            if (smoothed_convex_hull_.size() > 0) {
-                DISPLAY_PIXELS_CONVEX();
-                return;
-            }
-            if (convex_hull_.size() > 0) {
-                DISPLAY_PIXELS(convex_hull_);
-                return;
-            }
-            std::cout << "No region selected\n";
-            return;
-        }
+//        if (bounding_box.size() == 0) {
+//            if (smoothed_convex_hull_.size() > 0) {
+//                DISPLAY_PIXELS_CONVEX(smoothed_convex_hull_);
+//                return;
+//            }
+//            if (convex_hull_.size() > 0) {
+//                DISPLAY_PIXELS_CONVEX(convex_hull_);
+//                return;
+//            }
+//            std::cout << "No region selected\n";
+//            return;
+//        }
         if (!src.data) {
             std::cout << "No image selected\n";
             return;
         }
-        if (convex_hull_.size() > 0) {
-            DISPLAY_PIXELS_CONVEX();
+        if (smoothed_convex_hull_.size() > 0) {
+            DISPLAY_PIXELS_CONVEX(smoothed_convex_hull_);
             return;
         }
         if (convex_hull_.size() > 0) {
-            DISPLAY_PIXELS(convex_hull_);
+            DISPLAY_PIXELS_CONVEX(convex_hull_);
             return;
         }
         if (bounding_box.size() > 0) {
@@ -517,7 +517,7 @@ public:
     }
 
     float tj(float t, Point p0, Point p1) {
-        float alpha = 0.5;
+        float alpha = 0.5f;
         float a = pow((p1.x - p0.x), 2.0f) + pow((p1.y - p0.y), 2.0f);
         float b = pow(a, 0.5f);
         float c = pow(b, alpha);
@@ -535,16 +535,16 @@ public:
 
         for (float t = t1; t < t2; t += ((t2 - t1) / num_points)) {
             Point A1;
-            A1.x = (t1 - t) / (t1 - t0) * p0.x + (t1 - t) / (t1 - t0) * p1.x;
-            A1.y = (t1 - t) / (t1 - t0) * p0.y + (t1 - t) / (t1 - t0) * p1.y;
+            A1.x = (t1 - t) / (t1 - t0) * p0.x + (t - t0) / (t1 - t0) * p1.x;
+            A1.y = (t1 - t) / (t1 - t0) * p0.y + (t - t0) / (t1 - t0) * p1.y;
 
             Point A2;
-            A2.x = (t2 - t) / (t2 - t1) * p1.x + (t2 - t1) / (t2 - t1) * p2.x;
-            A2.y = (t2 - t) / (t2 - t1) * p1.y + (t2 - t1) / (t2 - t1) * p2.y;
+            A2.x = (t2 - t) / (t2 - t1) * p1.x + (t - t1) / (t2 - t1) * p2.x;
+            A2.y = (t2 - t) / (t2 - t1) * p1.y + (t - t1) / (t2 - t1) * p2.y;
 
             Point A3;
-            A3.x = (t3 - t) / (t3 - t2) * p2.x + (t3 - t) / (t3 - t2) * p3.x;
-            A3.y = (t3 - t) / (t3 - t2) * p2.y + (t3 - t) / (t3 - t2) * p3.y;
+            A3.x = (t3 - t) / (t3 - t2) * p2.x + (t - t2) / (t3 - t2) * p3.x;
+            A3.y = (t3 - t) / (t3 - t2) * p2.y + (t - t2) / (t3 - t2) * p3.y;
 
             Point B1;
             B1.x = (t2 - t) / (t2 - t0) * A1.x + (t - t0) / (t2 - t0) * A2.x;
@@ -575,7 +575,18 @@ public:
             c = CatMulSplineInterval(convex_hull_[i], convex_hull_[i + 1], convex_hull_[i + 2], convex_hull_[i + 3]);
             copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
         }
-        std::cout << "Smoothed_convec_hull size: " << smoothed_convex_hull_.size() << std::endl;
+
+        c = CatMulSplineInterval(convex_hull_[size - 3], convex_hull_[size - 2], convex_hull_[size - 1],
+                                 convex_hull_[0]);
+        copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
+
+        c = CatMulSplineInterval(convex_hull_[size - 2], convex_hull_[size - 1], convex_hull_[0], convex_hull_[1]);
+        copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
+
+        c = CatMulSplineInterval(convex_hull_[size - 1], convex_hull_[0], convex_hull_[1], convex_hull_[2]);
+        copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
+
+        std::cout << "Smoothed convex hull size: " << smoothed_convex_hull_.size() << std::endl;
     }
 
     void FIND_SMOOTH_PERIMETER() {
