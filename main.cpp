@@ -86,22 +86,29 @@ int main(int argc, char **argv) {
         } else if (function == "TEST") {
             ImageManager IM;
             IM.DISPLAY_IMAGE("test1.png");
-            IM.FIND_REGION(123, 123);
+            IM.FIND_REGION(61, 145);
+            IM.FIND_SMOOTH_PERIMETER();
             IM.DISPLAY_PIXELS();
             usleep(3000);
             IM.DISPLAY_IMAGE("test2.png");
-            IM.FIND_REGION(123, 43);
+            IM.FIND_REGION(118, 100);
+            IM.FIND_SMOOTH_PERIMETER();
             IM.DISPLAY_PIXELS();
             usleep(3000);
             IM.DISPLAY_IMAGE("test3.png");
-            IM.FIND_REGION(43, 123);
+            IM.FIND_REGION(100, 100);
+            IM.DISPLAY_PIXELS();
+            IM.FIND_SMOOTH_PERIMETER();
             IM.DISPLAY_PIXELS();
             usleep(3000);
             IM.DISPLAY_IMAGE("test4.jpg");
-            IM.FIND_REGION(55, 55);
+            IM.setThresholds(50, 50, 50);
+            IM.FIND_REGION(1361, 667);
+            IM.FIND_SMOOTH_PERIMETER();
             IM.DISPLAY_PIXELS();
             IM.DISPLAY_IMAGE("yesthisfileiscorrupt.png");
             IM.FIND_REGION(123, 123);
+            IM.FIND_SMOOTH_PERIMETER();
             IM.DISPLAY_PIXELS();
             return 0;
         } else {

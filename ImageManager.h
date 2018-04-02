@@ -27,12 +27,14 @@
 //We may not want to calculate the convex hull
 //for ROIS over a certain size
 #define MAX_SIZE_TO_COMPUTE_CONVEX_HULL 10000
+
 //Similarity threshold for blue
-#define BT 50
+int BT = 2;
 //Similarity threshold for red
-#define RT 50
+int RT = 2;
 //Similarity threshold for green
-#define GT 50
+int GT = 2;
+
 using namespace cv;
 
 /**
@@ -86,6 +88,7 @@ private:
     Mat roi_to_save;
 
 
+
     /**
      * Function to listen for clicks in an image, currently not used
      * @param event a click event
@@ -94,17 +97,17 @@ private:
      * @param flags openCV flags
      * @param param parameters we might want to pass to the function
      */
-    static void onClick(int event, int x, int y, int flags, void *param) {
-        //std::cout<<x<<" "<<y<<std::endl;
-        ImageManager *im_this = static_cast<ImageManager *>( param);
-        //std::cout<<im_this->src.rows<<std::endl;
-        //std::cout<<im_this->src.cols<<std::endl;
-        if (event == EVENT_LBUTTONDOWN) {
-            Point event_source(x, y);
-            im_this->FIND_REGION(im_this->src, event_source, BT, RT, GT);
-        }
-
-    }
+//    static void onClick(int event, int x, int y, int flags, void *param) {
+//        //std::cout<<x<<" "<<y<<std::endl;
+//        ImageManager *im_this = static_cast<ImageManager *>( param);
+//        //std::cout<<im_this->src.rows<<std::endl;
+//        //std::cout<<im_this->src.cols<<std::endl;
+//        if (event == EVENT_LBUTTONDOWN) {
+//            Point event_source(x, y);
+//            im_this->FIND_REGION(im_this->src, event_source, BT, RT, GT);
+//        }
+//
+//    }
 
 public:
 
@@ -127,6 +130,17 @@ public:
         }
     }
 
+    /**
+     * Method to set the color similarity thresholds
+     * @param rt
+     * @param bt
+     * @param gt
+     */
+    void setThresholds(int rt, int bt, int gt) {
+        RT = rt;
+        BT = bt;
+        GT = gt;
+    }
 
     /**
      * Changes the image that is being used
@@ -344,7 +358,7 @@ public:
         }
 
         if (bounding_box_edges.size() != 2) {
-            std::err << "Could not find region\n";
+            std::cerr << "Could not find region\n";
             return;
         }
 
@@ -436,6 +450,8 @@ public:
         //If we loaded a new image clear our variables
         region_of_interest.clear();
         bounding_box.clear();
+        convex_hull_.clear();
+        smoothed_convex_hull_.clear();
     }
 
     /**
@@ -632,12 +648,13 @@ public:
         size_t size = convex_hull_.size();
         vector<Point> c;
         for (int i = 0; i < size - 3; ++i) {
-            c = CatmullRomSplineInterval(convex_hull_[i], convex_hull_[i + 1], convex_hull_[i + 2], convex_hull_[i + 3]);
+            c = CatmullRomSplineInterval(convex_hull_[i], convex_hull_[i + 1], convex_hull_[i + 2],
+                                         convex_hull_[i + 3]);
             copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
         }
         //Run for the last points to create the loop
         c = CatmullRomSplineInterval(convex_hull_[size - 3], convex_hull_[size - 2], convex_hull_[size - 1],
-                                 convex_hull_[0]);
+                                     convex_hull_[0]);
         copy(c.begin(), c.end(), std::back_inserter(smoothed_convex_hull_));
 
         c = CatmullRomSplineInterval(convex_hull_[size - 2], convex_hull_[size - 1], convex_hull_[0], convex_hull_[1]);
