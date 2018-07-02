@@ -1,4 +1,7 @@
-# ImageManager README
+# ImageManager
+
+This is an exercise in basic image processing and segmentation. The user selects a point by coordinates through a CLI and
+receives the area surrounding the selected point that is similar in color. Area selections is done using the flood-fill algorithm and the bounding area smoothing is done using Catmull-Rom splines. As an exercises these methods were implemented by hand instead of using OpenCV's existing methods.
 
 ## Main Executable: ./MAIN_TEST
 ### Available commands after starting executable:
@@ -19,9 +22,11 @@
 
 **SAVE PIXELS \<optional filename>**: Will save the selected area to the given filename or "region.jpg" by default
 
-    run ./MAIN_TEST -f TEST to run a test over the sample images (press any key to proceed
-    through the images)
+**To run a test over the sample images (press any key to proceed through the images)**
 
+```bash
+user@host:~$ ./MAIN_TEST -f TEST
+```
 
 Running Example for **test3.png** (Also see the commited images *test_original.jpg, test_smoothed.jpg*):
 
